@@ -1,4 +1,4 @@
-# ICCREA Planner
+# Cadence
 
 Project planning tool with Kanban board, interactive Gantt chart with critical path, and workload management. Single-user, localStorage persistence, deployed on Vercel.
 
@@ -76,7 +76,7 @@ npx tsc --noEmit         # Type check without emitting
 
 - **IMPORTANT**: Scheduling and critical path are DERIVED state computed with `useMemo` from raw store data. Never store computed dates.
 - **IMPORTANT**: All date arithmetic uses business days only (Mon-Fri). Use `lib/date-utils.ts` helpers, never raw Date math.
-- Zustand stores use `persist` middleware with explicit localStorage keys: `iccrea-project`, `iccrea-ui`
+- Zustand stores use `persist` middleware with explicit localStorage keys: `cadence-project`, `cadence-ui`
 - Before adding a dependency, run cycle detection (DFS in `lib/critical-path.ts`). UI must prevent circular deps.
 - The `GanttOverride` type holds manual date overrides separate from items. Scheduler respects: `max(override, dependency end)`.
 - Canvas-based PNG/PDF export renders a fresh offscreen canvas, always in light theme for print readability.

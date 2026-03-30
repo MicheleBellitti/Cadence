@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useProjectStore, useTeam } from "@/stores/project-store";
+import { useProjectStore, useTeam, useSprints } from "@/stores/project-store";
 import type { Item, ItemType, Status, Priority, Severity } from "@/types";
 import { STATUSES, STATUS_LABELS } from "@/types";
 
 interface ItemFormProps {
   item?: Item;
   defaultType?: ItemType;
+  defaultStatus?: Status;
   defaultParentId?: string | null;
   onSave: () => void;
   onCancel: () => void;
@@ -55,23 +56,26 @@ function getInitialTagsInput(item?: Item): string {
 export function ItemForm({
   item,
   defaultType,
+  defaultStatus,
   defaultParentId,
   onSave,
   onCancel,
 }: ItemFormProps) {
   const team = useTeam();
+  const sprints = useSprints();
   const isEditing = !!item;
 
   const [type, setType] = useState<ItemType>(getInitialType(item, defaultType));
   const [title, setTitle] = useState(item?.title ?? "");
   const [description, setDescription] = useState(item?.description ?? "");
-  const [status, setStatus] = useState<Status>(item?.status ?? "todo");
+  const [status, setStatus] = useState<Status>(item?.status ?? defaultStatus ?? "todo");
   const [priority, setPriority] = useState<Priority>(item?.priority ?? "medium");
   const [assigneeId, setAssigneeId] = useState<string>(item?.assigneeId ?? "");
   const [estimatedDays, setEstimatedDays] = useState<string>(
     item ? String(item.estimatedDays) : "0"
   );
   const [tagsInput, setTagsInput] = useState<string>(getInitialTagsInput(item));
+  const [sprintId, setSprintId] = useState<string>(item?.sprintId ?? "");
 
   // Epic-specific
   const [targetDate, setTargetDate] = useState<string>(
@@ -106,6 +110,22 @@ export function ItemForm({
     ...team.map((m) => ({ value: m.id, label: m.name })),
   ];
 
+  const sprintStatusLabel = (status: string) => {
+    if (status === "active") return "Active";
+    if (status === "planning") return "Planning";
+    return "Completed";
+  };
+
+  const sprintOptions = [
+    { value: "", label: "Backlog" },
+    ...sprints
+      .filter((sp) => sp.status === "active" || sp.status === "planning")
+      .map((sp) => ({
+        value: sp.id,
+        label: `${sp.name} (${sprintStatusLabel(sp.status)})`,
+      })),
+  ];
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -129,6 +149,7 @@ export function ItemForm({
       tags: parsedTags,
       dependencies: item?.dependencies ?? [],
       parentId: item ? item.parentId : (defaultParentId ?? null),
+      sprintId: sprintId || null,
     };
 
     type NewItem = Omit<Item, "id" | "createdAt" | "updatedAt" | "order">;
@@ -292,6 +313,15 @@ export function ItemForm({
           onChange={(e) => setEstimatedDays(e.target.value)}
         />
       </div>
+
+      {/* Sprint */}
+      <Select
+        id="item-sprint"
+        label="Sprint"
+        value={sprintId}
+        onChange={(e) => setSprintId(e.target.value)}
+        options={sprintOptions}
+      />
 
       {/* Tags */}
       <div className="flex flex-col gap-1">

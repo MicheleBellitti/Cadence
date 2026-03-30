@@ -4,6 +4,18 @@ export type Priority = "critical" | "high" | "medium" | "low";
 export type Severity = "critical" | "high" | "medium" | "low";
 export type ZoomLevel = "day" | "week" | "month";
 export type Theme = "light" | "dark" | "system";
+export type SprintStatus = "planning" | "active" | "completed";
+
+export interface Sprint {
+  id: string;
+  name: string;
+  goal: string;
+  status: SprintStatus;
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface BaseItem {
   id: string;
@@ -17,6 +29,7 @@ export interface BaseItem {
   dependencies: string[];
   tags: string[];
   parentId: string | null;
+  sprintId: string | null;
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -65,6 +78,8 @@ export interface Project {
   items: Item[];
   team: TeamMember[];
   overrides: GanttOverride[];
+  sprints: Sprint[];
+  activeSprint: string | null;
   createdAt: string;
   updatedAt: string;
 }

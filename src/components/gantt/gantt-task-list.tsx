@@ -1,0 +1,116 @@
+"use client";
+
+import { forwardRef } from "react";
+import type { Item, TeamMember, ScheduledItem } from "@/types";
+import { ITEM_COLORS } from "@/types";
+
+const ROW_HEIGHT = 48;
+
+const TYPE_ICONS: Record<string, string> = {
+  epic: "\u2B21",
+  story: "\u25C8",
+  task: "\u25FB",
+  bug: "\u25CF",
+};
+
+interface GanttTaskListProps {
+  items: Item[];
+  scheduled: ScheduledItem[];
+  team: TeamMember[];
+  selectedItemId: string | null;
+  onSelect: (id: string) => void;
+}
+
+function indentForType(type: string): number {
+  switch (type) {
+    case "epic":
+      return 0;
+    case "story":
+      return 16;
+    default:
+      return 32;
+  }
+}
+
+export const GanttTaskList = forwardRef<HTMLDivElement, GanttTaskListProps>(
+  function GanttTaskList({ items, scheduled, team, selectedItemId, onSelect }, ref) {
+    const teamMap = new Map(team.map((m) => [m.id, m]));
+    const scheduleMap = new Map(scheduled.map((s) => [s.itemId, s]));
+
+    return (
+      <div
+        className="shrink-0 border-r border-[var(--border)] bg-[var(--bg-surface)] overflow-hidden"
+        style={{ width: 370 }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center px-3 text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide border-b border-[var(--border)] bg-[var(--bg-elevated)]"
+          style={{ height: ROW_HEIGHT }}
+        >
+          <span className="flex-1">Item</span>
+          <span className="w-20 text-right">Assignee</span>
+          <span className="w-12 text-right">Days</span>
+        </div>
+
+        {/* Scrollable rows */}
+        <div ref={ref} className="overflow-y-auto" style={{ height: `calc(100% - ${ROW_HEIGHT}px)` }}>
+          {items.length === 0 && (
+            <div className="flex items-center justify-center h-32 text-sm text-[var(--text-secondary)]">
+              No items to display.
+            </div>
+          )}
+          {items.map((item, idx) => {
+            const assignee = item.assigneeId
+              ? teamMap.get(item.assigneeId)
+              : undefined;
+            const sched = scheduleMap.get(item.id);
+            const isSelected = item.id === selectedItemId;
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => onSelect(item.id)}
+                className={[
+                  "flex items-center px-3 cursor-pointer border-b border-[var(--border)] transition-colors duration-75",
+                  isSelected
+                    ? "bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
+                    : idx % 2 === 0
+                      ? "bg-[var(--bg-surface)]"
+                      : "bg-[var(--bg-primary)]",
+                  "hover:bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]",
+                ].join(" ")}
+                style={{ height: ROW_HEIGHT }}
+              >
+                {/* Indented icon + title */}
+                <div
+                  className="flex items-center gap-1.5 flex-1 min-w-0"
+                  style={{ paddingLeft: indentForType(item.type) }}
+                >
+                  <span
+                    className="text-[10px] shrink-0"
+                    style={{ color: ITEM_COLORS[item.type] }}
+                  >
+                    {TYPE_ICONS[item.type]}
+                  </span>
+                  <span className="text-xs text-[var(--text-primary)] truncate">
+                    {item.title}
+                  </span>
+                </div>
+
+                {/* Assignee */}
+                <span className="w-20 text-right text-xs text-[var(--text-secondary)] truncate shrink-0">
+                  {assignee ? assignee.name : "\u2014"}
+                </span>
+
+                {/* Days */}
+                <span className="w-12 text-right text-xs text-[var(--text-secondary)] tabular-nums shrink-0">
+                  {sched ? item.estimatedDays : "\u2014"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+);

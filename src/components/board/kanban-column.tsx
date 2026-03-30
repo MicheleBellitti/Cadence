@@ -7,7 +7,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { KanbanCard } from "./kanban-card";
-import type { Item, Status, TeamMember } from "@/types";
+import type { Item, ItemType, Status, TeamMember } from "@/types";
 import { STATUS_LABELS } from "@/types";
 
 interface KanbanColumnProps {
@@ -15,7 +15,7 @@ interface KanbanColumnProps {
   items: Item[];
   team: TeamMember[];
   onCardClick: (itemId: string) => void;
-  onQuickAdd: (title: string, status: Status) => void;
+  onQuickAdd: (title: string, status: Status, type: ItemType) => void;
 }
 
 function KanbanColumn({
@@ -26,6 +26,7 @@ function KanbanColumn({
   onQuickAdd,
 }: KanbanColumnProps) {
   const [quickAddValue, setQuickAddValue] = useState("");
+  const [quickAddType, setQuickAddType] = useState<ItemType>("task");
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   const totalStoryPoints = items.reduce((sum, item) => {
@@ -39,7 +40,7 @@ function KanbanColumn({
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && quickAddValue.trim()) {
-      onQuickAdd(quickAddValue.trim(), status);
+      onQuickAdd(quickAddValue.trim(), status, quickAddType);
       setQuickAddValue("");
     }
   }
@@ -100,14 +101,24 @@ function KanbanColumn({
       </div>
 
       {/* Footer: Quick-add */}
-      <div className="px-2 pb-2 pt-1">
+      <div className="px-2 pb-2 pt-1 flex gap-1.5">
+        <select
+          value={quickAddType}
+          onChange={(e) => setQuickAddType(e.target.value as ItemType)}
+          className="px-1.5 py-1.5 text-xs bg-[var(--bg-surface)] border border-[var(--border)] rounded-md text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-colors duration-150 shrink-0"
+        >
+          <option value="task">Task</option>
+          <option value="story">Story</option>
+          <option value="bug">Bug</option>
+          <option value="epic">Epic</option>
+        </select>
         <input
           type="text"
           value={quickAddValue}
           onChange={(e) => setQuickAddValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Add item..."
-          className="w-full px-2.5 py-1.5 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-md text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-colors duration-150"
+          className="flex-1 min-w-0 px-2.5 py-1.5 text-sm bg-[var(--bg-surface)] border border-[var(--border)] rounded-md text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent transition-colors duration-150"
         />
       </div>
     </div>

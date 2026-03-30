@@ -33,7 +33,7 @@ export const useUIStore = create<UIState>()(
       closeModal: () => set({ activeModal: null }),
     }),
     {
-      name: "iccrea-ui",
+      name: "cadence-ui",
       partialize: (state) => ({
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,

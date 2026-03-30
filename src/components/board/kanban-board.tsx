@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -11,19 +11,23 @@ import {
 } from "@dnd-kit/core";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanCard } from "./kanban-card";
+import { SprintHeader } from "./sprint-header";
+import { SprintCompleteModal } from "./sprint-complete-modal";
 import { ItemDetailDrawer } from "@/components/items/item-detail-drawer";
 import { Select } from "@/components/ui/select";
 import {
   useProjectStore,
   useItems,
   useTeam,
+  useActiveSprint,
 } from "@/stores/project-store";
 import type { Item, Status, ItemType, Priority } from "@/types";
-import { STATUSES, ITEM_COLORS } from "@/types";
+import { STATUSES } from "@/types";
 
 function KanbanBoard() {
   const items = useItems();
   const team = useTeam();
+  const activeSprint = useActiveSprint();
   const addItem = useProjectStore((s) => s.addItem);
   const moveItem = useProjectStore((s) => s.moveItem);
 
@@ -32,6 +36,17 @@ function KanbanBoard() {
 
   // Drawer state
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  // Sprint filter state
+  const [sprintFilter, setSprintFilter] = useState<string | null | "all">("all");
+  const [completeSprintId, setCompleteSprintId] = useState<string | null>(null);
+
+  // Auto-select active sprint on mount / when active sprint changes
+  useEffect(() => {
+    if (activeSprint && sprintFilter === "all") {
+      setSprintFilter(activeSprint.id);
+    }
+  }, [activeSprint]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter state
   const [filterEpic, setFilterEpic] = useState("");
@@ -83,16 +98,23 @@ function KanbanBoard() {
     []
   );
 
+  // Apply sprint filter first
+  const sprintFilteredItems = useMemo(() => {
+    if (sprintFilter === "all") return items;
+    if (sprintFilter === null) return items.filter((i) => i.sprintId === null);
+    return items.filter((i) => i.sprintId === sprintFilter);
+  }, [items, sprintFilter]);
+
   // Apply filters
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
+    return sprintFilteredItems.filter((item) => {
       if (filterEpic && item.parentId !== filterEpic) return false;
       if (filterAssignee && item.assigneeId !== filterAssignee) return false;
       if (filterType && item.type !== filterType) return false;
       if (filterPriority && item.priority !== filterPriority) return false;
       return true;
     });
-  }, [items, filterEpic, filterAssignee, filterType, filterPriority]);
+  }, [sprintFilteredItems, filterEpic, filterAssignee, filterType, filterPriority]);
 
   // Group items by status
   const columnItems = useMemo(() => {
@@ -175,9 +197,9 @@ function KanbanBoard() {
 
   // Quick-add handler
   const handleQuickAdd = useCallback(
-    (title: string, status: Status) => {
-      addItem({
-        type: "task" as ItemType,
+    (title: string, status: Status, type: ItemType = "task") => {
+      type NewItem = Omit<Item, "id" | "createdAt" | "updatedAt" | "order">;
+      const base = {
         title,
         description: "",
         status,
@@ -187,7 +209,17 @@ function KanbanBoard() {
         dependencies: [],
         tags: [],
         parentId: null,
-      });
+        sprintId: null,
+      };
+      if (type === "epic") {
+        addItem({ ...base, type: "epic", targetDate: null } as NewItem);
+      } else if (type === "story") {
+        addItem({ ...base, type: "story", storyPoints: 0, acceptanceCriteria: "" } as NewItem);
+      } else if (type === "bug") {
+        addItem({ ...base, type: "bug", severity: "medium", stepsToReproduce: "" } as NewItem);
+      } else {
+        addItem({ ...base, type: "task" } as NewItem);
+      }
     },
     [addItem]
   );
@@ -233,6 +265,13 @@ function KanbanBoard() {
         />
       </div>
 
+      {/* Sprint header */}
+      <SprintHeader
+        currentFilter={sprintFilter}
+        onFilterChange={setSprintFilter}
+        onCompleteSprint={(id) => setCompleteSprintId(id)}
+      />
+
       {/* Board */}
       <div className="flex-1 overflow-x-auto p-6">
         <DndContext
@@ -268,6 +307,21 @@ function KanbanBoard() {
 
       {/* Detail drawer */}
       <ItemDetailDrawer itemId={selectedItemId} onClose={handleDrawerClose} />
+
+      {/* Sprint complete modal */}
+      {completeSprintId && (
+        <SprintCompleteModal
+          open={!!completeSprintId}
+          onClose={() => {
+            setCompleteSprintId(null);
+            // After completing, switch to "all" if the completed sprint was the filter
+            if (sprintFilter === completeSprintId) {
+              setSprintFilter("all");
+            }
+          }}
+          sprintId={completeSprintId}
+        />
+      )}
     </div>
   );
 }

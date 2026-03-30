@@ -6,11 +6,13 @@ interface GanttState {
   scrollPosition: { x: number; y: number };
   selectedItemId: string | null;
   collapsedEpicIds: Set<string>;
+  columnWidth: number | null; // null = auto-fit mode
 
   setZoomLevel: (level: ZoomLevel) => void;
   setScrollPosition: (pos: { x: number; y: number }) => void;
   setSelectedItemId: (id: string | null) => void;
   toggleEpicCollapse: (epicId: string) => void;
+  setColumnWidth: (w: number | null) => void;
 }
 
 export const useGanttStore = create<GanttState>()((set) => ({
@@ -18,12 +20,15 @@ export const useGanttStore = create<GanttState>()((set) => ({
   scrollPosition: { x: 0, y: 0 },
   selectedItemId: null,
   collapsedEpicIds: new Set<string>(),
+  columnWidth: null,
 
-  setZoomLevel: (level) => set({ zoomLevel: level }),
+  setZoomLevel: (level) => set({ zoomLevel: level, columnWidth: null }),
 
   setScrollPosition: (pos) => set({ scrollPosition: pos }),
 
   setSelectedItemId: (id) => set({ selectedItemId: id }),
+
+  setColumnWidth: (w) => set({ columnWidth: w }),
 
   toggleEpicCollapse: (epicId) =>
     set((state) => {

@@ -54,7 +54,7 @@ export function Sidebar() {
               className="font-semibold text-sm truncate"
               style={{ color: "var(--text-primary)" }}
             >
-              ICCREA Planner
+              Cadence
             </motion.span>
           )}
         </div>

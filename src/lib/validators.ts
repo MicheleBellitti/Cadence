@@ -4,6 +4,18 @@ const itemTypeSchema = z.enum(["epic", "story", "task", "bug"]);
 const statusSchema = z.enum(["todo", "in_progress", "in_review", "done"]);
 const prioritySchema = z.enum(["critical", "high", "medium", "low"]);
 const severitySchema = z.enum(["critical", "high", "medium", "low"]);
+const sprintStatusSchema = z.enum(["planning", "active", "completed"]);
+
+export const sprintSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  goal: z.string(),
+  status: sprintStatusSchema,
+  startDate: z.string().nullable(),
+  endDate: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
 
 const baseItemSchema = z.object({
   id: z.string().min(1),
@@ -17,6 +29,7 @@ const baseItemSchema = z.object({
   dependencies: z.array(z.string()),
   tags: z.array(z.string()),
   parentId: z.string().nullable(),
+  sprintId: z.string().nullable(),
   order: z.number(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -70,6 +83,8 @@ export const projectSchema = z.object({
   items: z.array(itemSchema),
   team: z.array(teamMemberSchema),
   overrides: z.array(ganttOverrideSchema),
+  sprints: z.array(sprintSchema),
+  activeSprint: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

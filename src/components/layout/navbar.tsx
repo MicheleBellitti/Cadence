@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { Plus } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { useUIStore } from "@/stores/ui-store";
 import { useProjectStore } from "@/stores/project-store";
+import { CreateItemModal } from "@/components/items/create-item-modal";
 
 const EXPANDED_WIDTH = 240;
 const COLLAPSED_WIDTH = 64;
@@ -19,6 +22,7 @@ export function Navbar() {
   const pathname = usePathname();
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const projectName = useProjectStore((s) => s.project.name);
+  const [showCreate, setShowCreate] = useState(false);
 
   const sidebarWidth = sidebarCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
 
@@ -65,10 +69,20 @@ export function Navbar() {
         )}
       </div>
 
-      {/* Right: theme toggle */}
-      <div className="shrink-0">
+      {/* Right: create button + theme toggle */}
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center justify-center w-7 h-7 rounded-md bg-[var(--accent)] text-white hover:opacity-90 transition-opacity duration-150"
+          title="Create item"
+          aria-label="Create item"
+        >
+          <Plus size={16} />
+        </button>
         <ThemeToggle />
       </div>
+
+      <CreateItemModal open={showCreate} onClose={() => setShowCreate(false)} />
     </header>
   );
 }

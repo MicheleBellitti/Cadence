@@ -12,8 +12,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "ICCREA Planner",
-  description: "Project planning and tracking for ICCREA",
+  title: "Cadence",
+  description: "Project planning and tracking tool",
 };
 
 export default function RootLayout({

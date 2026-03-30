@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { itemSchema, projectSchema, teamMemberSchema } from "./validators";
+import { itemSchema, projectSchema, teamMemberSchema, sprintSchema } from "./validators";
 
 describe("itemSchema", () => {
   it("validates a valid task", () => {
@@ -15,6 +15,7 @@ describe("itemSchema", () => {
       dependencies: [],
       tags: [],
       parentId: null,
+      sprintId: null,
       order: 0,
       createdAt: "2026-03-30T00:00:00.000Z",
       updatedAt: "2026-03-30T00:00:00.000Z",
@@ -35,6 +36,7 @@ describe("itemSchema", () => {
       dependencies: [],
       tags: [],
       parentId: null,
+      sprintId: null,
       order: 0,
       createdAt: "2026-03-30T00:00:00.000Z",
       updatedAt: "2026-03-30T00:00:00.000Z",
@@ -55,6 +57,7 @@ describe("itemSchema", () => {
       dependencies: [],
       tags: [],
       parentId: null,
+      sprintId: null,
       order: 0,
       targetDate: "2026-06-01",
       createdAt: "2026-03-30T00:00:00.000Z",
@@ -76,6 +79,7 @@ describe("itemSchema", () => {
       dependencies: [],
       tags: ["auth"],
       parentId: "e1",
+      sprintId: null,
       order: 0,
       storyPoints: 5,
       acceptanceCriteria: "Login form works",
@@ -98,6 +102,7 @@ describe("itemSchema", () => {
       dependencies: [],
       tags: [],
       parentId: "s1",
+      sprintId: null,
       order: 0,
       severity: "critical",
       stepsToReproduce: "1. Go to login\n2. Enter credentials",
@@ -120,6 +125,7 @@ describe("itemSchema", () => {
       dependencies: [],
       tags: [],
       parentId: null,
+      sprintId: null,
       order: 0,
       createdAt: "2026-03-30T00:00:00.000Z",
       updatedAt: "2026-03-30T00:00:00.000Z",
@@ -161,6 +167,8 @@ describe("projectSchema", () => {
       items: [],
       team: [],
       overrides: [],
+      sprints: [],
+      activeSprint: null,
       createdAt: "2026-03-30T00:00:00.000Z",
       updatedAt: "2026-03-30T00:00:00.000Z",
     };
@@ -185,6 +193,7 @@ describe("projectSchema", () => {
           dependencies: [],
           tags: [],
           parentId: null,
+          sprintId: null,
           order: 0,
           createdAt: "2026-03-30T00:00:00.000Z",
           updatedAt: "2026-03-30T00:00:00.000Z",
@@ -194,9 +203,89 @@ describe("projectSchema", () => {
         { id: "m1", name: "Alice", color: "#FF5733", role: "Dev", hoursPerDay: 8 },
       ],
       overrides: [],
+      sprints: [],
+      activeSprint: null,
       createdAt: "2026-03-30T00:00:00.000Z",
       updatedAt: "2026-03-30T00:00:00.000Z",
     };
     expect(projectSchema.safeParse(project).success).toBe(true);
+  });
+
+  it("validates a project with sprints", () => {
+    const project = {
+      id: "p1",
+      name: "Test Project",
+      deadline: null,
+      items: [],
+      team: [],
+      overrides: [],
+      sprints: [
+        {
+          id: "sp1",
+          name: "Sprint 1",
+          goal: "Ship the MVP",
+          status: "active",
+          startDate: "2026-03-01T00:00:00.000Z",
+          endDate: "2026-03-15T00:00:00.000Z",
+          createdAt: "2026-03-01T00:00:00.000Z",
+          updatedAt: "2026-03-01T00:00:00.000Z",
+        },
+      ],
+      activeSprint: "sp1",
+      createdAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:00:00.000Z",
+    };
+    expect(projectSchema.safeParse(project).success).toBe(true);
+  });
+});
+
+describe("sprintSchema", () => {
+  it("validates a valid sprint", () => {
+    const sprint = {
+      id: "sp1",
+      name: "Sprint 1",
+      goal: "Deliver core features",
+      status: "planning",
+      startDate: null,
+      endDate: null,
+      createdAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:00:00.000Z",
+    };
+    expect(sprintSchema.safeParse(sprint).success).toBe(true);
+  });
+
+  it("rejects sprint with empty name", () => {
+    const sprint = {
+      id: "sp1",
+      name: "",
+      goal: "",
+      status: "planning",
+      startDate: null,
+      endDate: null,
+      createdAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:00:00.000Z",
+    };
+    expect(sprintSchema.safeParse(sprint).success).toBe(false);
+  });
+
+  it("validates item with sprintId", () => {
+    const item = {
+      id: "t1",
+      type: "task",
+      title: "Task in sprint",
+      description: "",
+      status: "todo",
+      priority: "medium",
+      assigneeId: null,
+      estimatedDays: 1,
+      dependencies: [],
+      tags: [],
+      parentId: null,
+      sprintId: "sp1",
+      order: 0,
+      createdAt: "2026-03-30T00:00:00.000Z",
+      updatedAt: "2026-03-30T00:00:00.000Z",
+    };
+    expect(itemSchema.safeParse(item).success).toBe(true);
   });
 });
