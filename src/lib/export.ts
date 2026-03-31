@@ -304,7 +304,7 @@ export function renderGanttCanvas(
       ctx.font = `11px ${FONT_FAMILY}`;
       ctx.textBaseline = "middle";
 
-      let barLabel = item.title;
+      const barLabel = item.title;
       const insideMaxW = barWidth - 10;
 
       // Can we fit the full label or a truncated version inside?

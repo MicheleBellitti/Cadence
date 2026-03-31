@@ -137,20 +137,21 @@ export function ItemForm({
   ];
 
   // Dependency options: all items except self and items that would create a cycle
+  const currentItemId = item?.id;
   const dependencyOptions = useMemo(() => {
     return allItems
-      .filter((i) => i.id !== item?.id) // exclude self
+      .filter((i) => i.id !== currentItemId) // exclude self
       .filter((i) => {
         // Exclude items that would create a cycle
-        if (!item?.id) return true; // new item, no cycles possible
-        return !hasCycle(allItems, item.id, i.id);
+        if (!currentItemId) return true; // new item, no cycles possible
+        return !hasCycle(allItems, currentItemId, i.id);
       })
       .map((i) => ({
         value: i.id,
         label: i.title,
         secondary: i.type,
       }));
-  }, [allItems, item?.id]);
+  }, [allItems, currentItemId]);
 
   // Parent epic options: only epics, excluding self
   const epicOptions = useMemo(() => {

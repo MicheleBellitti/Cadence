@@ -485,7 +485,7 @@ export const useProjectStore = create<ProjectState>()(
           proj.items = proj.items.map((item: Record<string, unknown>) => {
             if (!("assigneeIds" in item)) {
               const oldId = item.assigneeId as string | null;
-              const { assigneeId: _, ...rest } = item;
+              const { assigneeId: _unused, ...rest } = item;
               return { ...rest, assigneeIds: oldId ? [oldId] : [] };
             }
             // Ensure assigneeIds is always an array (guard against undefined)
