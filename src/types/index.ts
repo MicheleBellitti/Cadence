@@ -103,7 +103,7 @@ export interface ScheduledItem {
 export interface FirebaseUser {
   uid: string;
   email: string;
-  displayName: string;
+  displayName: string | null;
   projectId: string | null;
 }
 
