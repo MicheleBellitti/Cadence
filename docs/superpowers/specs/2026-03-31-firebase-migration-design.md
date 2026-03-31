@@ -172,7 +172,14 @@ When a user registers:
 2. Create `users/{uid}` Firestore document with `email`, `displayName`, `projectId: null`
 3. Check for pending invites matching their email → show acceptance UI
 
-The `AuthProvider` must not emit "authenticated" state until the `users/{uid}` document exists. The registration handler completes steps 1-2 before setting auth state, preventing the AuthGate from evaluating a user with no Firestore document.
+The `AuthProvider` handles the race between `onAuthStateChanged` (which fires immediately after Firebase Auth account creation) and the `users/{uid}` Firestore document (which is written asynchronously). The auth flow is:
+
+1. `onAuthStateChanged` fires with a user object
+2. `AuthProvider` reads `users/{uid}` from Firestore
+3. If document doesn't exist yet (registration in progress, or page refresh between step 1-2): retry with a short delay, or create it lazily as a fallback
+4. Only once the user document is confirmed to exist does `AuthProvider` emit "authenticated" state
+
+This handles both the happy path (registration handler creates the doc before auth state propagates) and edge cases (page refresh mid-registration, Firestore write failure on first attempt).
 
 ### Team member linking
 
@@ -235,7 +242,7 @@ Each listener updates the Zustand store on change.
 
 Some operations affect multiple documents (e.g., deleting an item with descendants, removing a team member referenced in assigneeIds). These are implemented as Firestore batched writes:
 
-- **Delete item**: collect all descendant items (recursive by `parentId`), remove their IDs from other items' `dependencies` arrays, delete all in a single batch. Firestore batches support up to 500 operations — more than sufficient for this use case.
+- **Delete item**: collect all descendant items (recursive by `parentId`), remove their IDs from other items' `dependencies` arrays, delete corresponding `overrides/{itemId}` documents (if they exist), delete all in a single batch. Firestore batches support up to 500 operations — more than sufficient for this use case.
 - **Delete team member**: remove their ID from `assigneeIds` on all items, then delete the team member document.
 - **Delete sprint**: unset `sprintId` on all items assigned to it, then delete the sprint document.
 
@@ -259,7 +266,7 @@ The multi-tab manager ensures multiple browser tabs work correctly. Writes are q
 
 ### Loading and error states
 
-- **Initial load**: a full-screen loading spinner is shown while the 5 onSnapshot listeners resolve for the first time. The store exposes a `loading: boolean` state that components check.
+- **Initial load**: with `persistentLocalCache` enabled, the first onSnapshot callback may return cached data almost instantly (if the user has loaded the app before). The store exposes `loading: boolean` (no data yet) and `syncing: boolean` (have cached data, waiting for server confirmation). Components show a full-screen spinner only when `loading` is true (first-ever load, no cache). When `syncing`, the app renders with cached data and shows a subtle "syncing..." indicator. Use `snapshot.metadata.fromCache` to distinguish.
 - **Write failures**: network errors or permission denied → toast notification with the error. The onSnapshot listener will bring the store back to the server's state.
 - **Listener errors**: if an onSnapshot listener errors (e.g., permission revoked because user was removed from project), redirect to `/login` with a message "You no longer have access to this project."
 
@@ -292,10 +299,12 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.memberIds == [request.auth.uid];
 
-      // Update: must be a member; cannot change ownerId
+      // Update: must be a member; cannot change ownerId or memberIds
+      // (memberIds can only change via the invite acceptance rule below)
       allow update: if request.auth != null
         && request.auth.uid in resource.data.memberIds
-        && request.resource.data.ownerId == resource.data.ownerId;
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.memberIds == resource.data.memberIds;
 
       allow delete: if request.auth != null
         && request.auth.uid == resource.data.ownerId;
@@ -353,7 +362,7 @@ service cloud.firestore {
 
 The invite acceptance is the trickiest security problem. The invitee is not yet a member but needs to add themselves to `memberIds`. This is solved with a dedicated update rule on `projects`:
 
-1. Owner creates invite doc with deterministic ID: `{projectId}_{inviteeEmail}` (email as-is, since Firestore doc IDs allow most characters)
+1. Owner creates invite doc with deterministic ID: `{projectId}_{email}` where `email` is the invitee's email, lowercased (Firebase Auth normalizes emails to lowercase, so `request.auth.token.email` in security rules always matches). The client must use the same lowercased email when creating the doc ID. Note: Firestore doc IDs cannot contain `/` — emails with `/` (extremely rare, only in quoted local parts) are not supported.
 2. Invitee accepts → client runs a transaction:
    a. Update invite status to "accepted"
    b. Add own uid to project `memberIds` (special rule allows this if invite doc exists)
@@ -415,6 +424,12 @@ For existing users with data in localStorage:
 4. Clear localStorage key after successful migration
 5. If user declines or has no localStorage data → start fresh
 
+## Accepted Risks / Known Gaps
+
+- **Invite TTL**: invites have no expiration. A stale invite from months ago remains valid. Acceptable for a small team; add `expiresAt` if needed later.
+- **Duplicate security rule blocks**: the two `match /projects/{projectId}` blocks (normal update + invite acceptance) are ORed by Firestore. This is intentional — the invite acceptance rule is isolated with strict constraints (`affectedKeys`, `memberIds` size check, invite existence). Consolidating into one block would make the rule harder to read.
+- **`assigneeIds` vs architecture.md**: the codebase already uses `assigneeIds: string[]` (migrated from `assigneeId`). The `architecture.md` document is stale and should be updated to reflect this. The Firebase spec correctly uses `assigneeIds`.
+
 ## Future Considerations (Out of Scope)
 
 - Multi-project support (change `projectId` to `projectIds[]` on users, add `/projects` page)
@@ -422,3 +437,4 @@ For existing users with data in localStorage:
 - Role-based permissions (owner/editor/viewer)
 - Cloud Functions for email notifications, scheduled tasks
 - Activity log / audit trail
+- Persist `gantt-store.columnWidth` in `ui-store` (currently ephemeral — user loses zoom preference on refresh)
