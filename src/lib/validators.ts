@@ -33,6 +33,7 @@ const baseItemSchema = z.object({
   order: z.number(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  updatedBy: z.string().optional(),
 });
 
 const epicSchema = baseItemSchema.extend({
@@ -69,6 +70,7 @@ export const teamMemberSchema = z.object({
   color: z.string().max(20),
   role: z.string().max(100),
   hoursPerDay: z.number().min(0).max(24),
+  linkedUserId: z.string().nullable().optional(),
 });
 
 export const ganttOverrideSchema = z.object({
@@ -87,4 +89,15 @@ export const projectSchema = z.object({
   activeSprint: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  ownerId: z.string().optional(),
+  memberIds: z.array(z.string()).optional(),
+});
+
+export const inviteSchema = z.object({
+  id: z.string().min(1),
+  email: z.string().email(),
+  projectId: z.string().min(1),
+  invitedBy: z.string().min(1),
+  status: z.enum(["pending", "accepted"]),
+  createdAt: z.string(),
 });
