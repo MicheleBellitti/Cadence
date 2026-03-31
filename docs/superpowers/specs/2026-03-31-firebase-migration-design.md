@@ -362,7 +362,7 @@ service cloud.firestore {
 
 The invite acceptance is the trickiest security problem. The invitee is not yet a member but needs to add themselves to `memberIds`. This is solved with a dedicated update rule on `projects`:
 
-1. Owner creates invite doc with deterministic ID: `{projectId}_{email}` where `email` is the invitee's email, lowercased (Firebase Auth normalizes emails to lowercase, so `request.auth.token.email` in security rules always matches). The client must use the same lowercased email when creating the doc ID. Note: Firestore doc IDs cannot contain `/` — emails with `/` (extremely rare, only in quoted local parts) are not supported.
+1. Owner creates invite doc with deterministic ID: `{projectId}_{email}` where `email` is the invitee's email, lowercased (Firebase Auth normalizes emails to lowercase, so `request.auth.token.email` in security rules always matches). The client uses `email.toLowerCase()` — no further normalization (dots are valid in Firestore doc IDs, and the security rule uses `request.auth.token.email` directly). Note: Firestore doc IDs cannot contain `/` — emails with `/` (extremely rare, only in quoted local parts) are not supported.
 2. Invitee accepts → client runs a transaction:
    a. Update invite status to "accepted"
    b. Add own uid to project `memberIds` (special rule allows this if invite doc exists)
