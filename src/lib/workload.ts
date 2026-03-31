@@ -44,7 +44,7 @@ export function computeWorkload(
 
   // Filter items to only those that are assigned and not done
   const activeItems = items.filter(
-    (item) => item.assigneeId !== null && item.status !== "done"
+    (item) => item.assigneeIds.length > 0 && item.status !== "done"
   );
 
   const rangeStart = parseDateUTC(startDate);
@@ -55,7 +55,7 @@ export function computeWorkload(
   for (const member of team) {
     // Items assigned to this member that have a schedule entry
     const memberItems = activeItems.filter(
-      (item) => item.assigneeId === member.id && scheduleMap.has(item.id)
+      (item) => item.assigneeIds.includes(member.id) && scheduleMap.has(item.id)
     );
 
     // Iterate through each calendar day in the range
@@ -86,8 +86,12 @@ export function computeWorkload(
 
       // Only emit a WorkloadDay if there are contributing items
       if (overlappingItems.length > 0) {
-        // Each item contributes member.hoursPerDay regardless of overlap count
-        const totalHours = overlappingItems.length * member.hoursPerDay;
+        // Each item contributes a proportional share based on the number of assignees
+        const totalHours = overlappingItems.reduce((sum, itemId) => {
+          const item = memberItems.find((i) => i.id === itemId)!;
+          const share = 1 / item.assigneeIds.length;
+          return sum + member.hoursPerDay * share;
+        }, 0);
         const capacity = member.hoursPerDay;
         const utilization = totalHours / capacity;
 

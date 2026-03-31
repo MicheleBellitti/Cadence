@@ -16,11 +16,11 @@ const PRIORITY_BADGE_VARIANT: Record<string, BadgeVariant> = {
 
 interface KanbanCardProps {
   item: Item;
-  teamMember?: TeamMember;
+  teamMembers?: TeamMember[];
   onClick: () => void;
 }
 
-function KanbanCard({ item, teamMember, onClick }: KanbanCardProps) {
+function KanbanCard({ item, teamMembers = [], onClick }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -46,14 +46,9 @@ function KanbanCard({ item, teamMember, onClick }: KanbanCardProps) {
     e.stopPropagation();
   }
 
-  const initials = teamMember
-    ? teamMember.name
-        .split(" ")
-        .map((w) => w[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : null;
+  function getInitials(name: string): string {
+    return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+  }
 
   return (
     <div
@@ -86,13 +81,18 @@ function KanbanCard({ item, teamMember, onClick }: KanbanCardProps) {
             <Badge variant="purple">{item.storyPoints} SP</Badge>
           )}
 
-          {teamMember && initials && (
-            <div
-              className="flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-white shrink-0"
-              style={{ backgroundColor: teamMember.color }}
-              title={teamMember.name}
-            >
-              {initials}
+          {teamMembers.length > 0 && (
+            <div className="flex items-center -space-x-1.5 ml-auto">
+              {teamMembers.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-white shrink-0 ring-1 ring-[var(--bg-surface)]"
+                  style={{ backgroundColor: m.color }}
+                  title={m.name}
+                >
+                  {getInitials(m.name)}
+                </div>
+              ))}
             </div>
           )}
         </div>

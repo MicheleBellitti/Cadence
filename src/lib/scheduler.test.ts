@@ -10,7 +10,7 @@ function makeTask(overrides: Partial<Item> & { id: string }): Item {
     description: "",
     status: "todo",
     priority: "medium",
-    assigneeId: null,
+    assigneeIds: [],
     estimatedDays: 1,
     dependencies: [],
     tags: [],

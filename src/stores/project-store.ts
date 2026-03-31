@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Item, Project, TeamMember, GanttOverride, Status, Sprint } from "@/types";
+import { projectSchema } from "@/lib/validators";
 
 function now(): string {
   return new Date().toISOString();
@@ -257,8 +258,8 @@ export const useProjectStore = create<ProjectState>()(
             ...state.project,
             team: state.project.team.filter((member) => member.id !== id),
             items: state.project.items.map((item) =>
-              item.assigneeId === id
-                ? ({ ...item, assigneeId: null, updatedAt: timestamp } as Item)
+              item.assigneeIds.includes(id)
+                ? ({ ...item, assigneeIds: item.assigneeIds.filter(aid => aid !== id), updatedAt: timestamp } as Item)
                 : item
             ),
             updatedAt: timestamp,
@@ -412,10 +413,6 @@ export const useProjectStore = create<ProjectState>()(
       completeSprint: (id, moveIncomplete) => {
         const timestamp = now();
         set((state) => {
-          const incompleteItems = state.project.items.filter(
-            (item) => item.sprintId === id && item.status !== "done"
-          );
-
           let nextSprintId: string | null = null;
           if (moveIncomplete === "next") {
             const nextSprint = state.project.sprints.find(
@@ -473,6 +470,43 @@ export const useProjectStore = create<ProjectState>()(
     }),
     {
       name: "cadence-project",
+      // Migrate old assigneeId → assigneeIds when loading from localStorage,
+      // then validate the result with Zod before trusting it.
+      merge: (persisted, current) => {
+        if (!persisted || typeof persisted !== "object") return current;
+        const state = persisted as Record<string, unknown>;
+        if (!state.project) return current;
+
+        // Step 1: Run migrations on the raw persisted data BEFORE Zod validation,
+        // because old data won't have assigneeIds.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const proj = state.project as any;
+        if (proj?.items) {
+          proj.items = proj.items.map((item: Record<string, unknown>) => {
+            if (!("assigneeIds" in item)) {
+              const oldId = item.assigneeId as string | null;
+              const { assigneeId: _, ...rest } = item;
+              return { ...rest, assigneeIds: oldId ? [oldId] : [] };
+            }
+            // Ensure assigneeIds is always an array (guard against undefined)
+            if (!Array.isArray(item.assigneeIds)) {
+              return { ...item, assigneeIds: [] };
+            }
+            return item;
+          });
+          // Ensure sprints and activeSprint exist (migration from pre-sprint data)
+          if (!proj.sprints) proj.sprints = [];
+          if (proj.activeSprint === undefined) proj.activeSprint = null;
+        }
+
+        // Step 2: Validate the migrated project data with Zod.
+        const result = projectSchema.safeParse(proj);
+        if (!result.success) {
+          console.warn("Corrupted localStorage data, using defaults:", result.error.issues.slice(0, 3));
+          return current;
+        }
+        return { ...current, project: result.data };
+      },
     }
   )
 );

@@ -100,25 +100,21 @@ export function businessDaysBetween(a: Date, b: Date): number {
 }
 
 /**
- * Formats a Date to a `YYYY-MM-DD` string using local calendar date.
- * This pairs correctly with `parseDate`, which returns a local-midnight Date.
- *
- * Note: when the input was constructed via `new Date("YYYY-MM-DD")` (UTC
- * midnight) the UTC and local calendar dates can differ in negative-offset
- * zones.  All internal Date values produced by this module are local-midnight
- * dates, so local accessors are correct here.
+ * Formats a Date to a `YYYY-MM-DD` string using UTC calendar date.
+ * Uses UTC accessors so the result is correct regardless of local timezone.
  */
 export function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 /**
- * Parses a `YYYY-MM-DD` string into a Date at local midnight (hours === 0).
+ * Parses a `YYYY-MM-DD` string into a Date at UTC midnight.
+ * Avoids local-timezone shifts that occur with new Date(year, month, day).
  */
 export function parseDate(dateStr: string): Date {
   const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, day, 0, 0, 0, 0);
+  return new Date(Date.UTC(year, month - 1, day));
 }

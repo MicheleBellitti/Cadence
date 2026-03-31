@@ -95,9 +95,11 @@ describe("formatDate / parseDate", () => {
     expect(formatDate(date)).toBe("2026-03-30");
   });
 
-  it("parseDate returns start of day", () => {
+  it("parseDate returns UTC midnight", () => {
     const date = parseDate("2026-03-30");
-    expect(date.getHours()).toBe(0);
+    expect(date.getUTCHours()).toBe(0);
+    expect(date.getUTCMinutes()).toBe(0);
+    expect(date.getUTCSeconds()).toBe(0);
   });
 
   it("roundtrips correctly", () => {

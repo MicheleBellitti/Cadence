@@ -9,7 +9,7 @@ function makeTask(overrides: Partial<Item> & { id: string }): Item {
     description: "",
     status: "todo",
     priority: "medium",
-    assigneeId: null,
+    assigneeIds: [],
     estimatedDays: 1,
     dependencies: [],
     tags: [],
@@ -49,7 +49,7 @@ const member: TeamMember = {
 
 describe("computeWorkload", () => {
   it("single item on one day", () => {
-    const items = [makeTask({ id: "a", assigneeId: "m1", estimatedDays: 1 })];
+    const items = [makeTask({ id: "a", assigneeIds: ["m1"], estimatedDays: 1 })];
     const scheduled = [makeScheduled("a", "2026-03-30", "2026-03-30")]; // Monday
     const result = computeWorkload(
       items,
@@ -70,8 +70,8 @@ describe("computeWorkload", () => {
 
   it("two items same day = overallocated", () => {
     const items = [
-      makeTask({ id: "a", assigneeId: "m1", estimatedDays: 1 }),
-      makeTask({ id: "b", assigneeId: "m1", estimatedDays: 1 }),
+      makeTask({ id: "a", assigneeIds: ["m1"], estimatedDays: 1 }),
+      makeTask({ id: "b", assigneeIds: ["m1"], estimatedDays: 1 }),
     ];
     const scheduled = [
       makeScheduled("a", "2026-03-30", "2026-03-30"),
@@ -94,7 +94,7 @@ describe("computeWorkload", () => {
 
   it("multi-day item spans multiple days", () => {
     const items = [
-      makeTask({ id: "a", assigneeId: "m1", estimatedDays: 3 }),
+      makeTask({ id: "a", assigneeIds: ["m1"], estimatedDays: 3 }),
     ];
     const scheduled = [makeScheduled("a", "2026-03-30", "2026-04-01")]; // Mon-Wed
     const result = computeWorkload(
@@ -116,7 +116,7 @@ describe("computeWorkload", () => {
 
   it("skips weekends", () => {
     const items = [
-      makeTask({ id: "a", assigneeId: "m1", estimatedDays: 6 }),
+      makeTask({ id: "a", assigneeIds: ["m1"], estimatedDays: 6 }),
     ];
     const scheduled = [makeScheduled("a", "2026-03-30", "2026-04-06")]; // Mon Mar 30 - Mon Apr 6
     const result = computeWorkload(
@@ -136,7 +136,7 @@ describe("computeWorkload", () => {
 
   it("unassigned items don't contribute", () => {
     const items = [
-      makeTask({ id: "a", assigneeId: null, estimatedDays: 1 }),
+      makeTask({ id: "a", assigneeIds: [], estimatedDays: 1 }),
     ];
     const scheduled = [makeScheduled("a", "2026-03-30", "2026-03-30")];
     const result = computeWorkload(
@@ -155,7 +155,7 @@ describe("computeWorkload", () => {
 
   it("done items don't contribute", () => {
     const items = [
-      makeTask({ id: "a", assigneeId: "m1", estimatedDays: 1, status: "done" }),
+      makeTask({ id: "a", assigneeIds: ["m1"], estimatedDays: 1, status: "done" }),
     ];
     const scheduled = [makeScheduled("a", "2026-03-30", "2026-03-30")];
     const result = computeWorkload(

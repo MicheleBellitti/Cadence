@@ -1,12 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
-import type { Item, ScheduledItem, TeamMember, ZoomLevel } from "@/types";
+import type { Item, ScheduledItem, TeamMember, ZoomLevel, Sprint } from "@/types";
 import { GanttRow, ROW_HEIGHT } from "./gantt-row";
 import { GanttBar } from "./gantt-bar";
 import { DependencyArrows } from "./dependency-arrows";
 import type { TimelineColumn } from "./gantt-timeline";
 import { COLUMN_WIDTHS } from "./gantt-timeline";
+
+const MS_PER_DAY = 86400000;
+
+function calendarDaysDiff(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / MS_PER_DAY);
+}
 
 interface GanttBodyProps {
   items: Item[];
@@ -22,6 +28,7 @@ interface GanttBodyProps {
   onOverride: (itemId: string, startDate: string) => void;
   onUpdateDays: (itemId: string, days: number) => void;
   colWidth?: number;
+  sprints?: Sprint[];
 }
 
 export function GanttBody({
@@ -38,6 +45,7 @@ export function GanttBody({
   onOverride,
   onUpdateDays,
   colWidth: colWidthProp,
+  sprints = [],
 }: GanttBodyProps) {
   const colWidth = colWidthProp ?? COLUMN_WIDTHS[zoomLevel];
   const totalWidth = columns.length * colWidth;
@@ -58,11 +66,54 @@ export function GanttBody({
     }
   }, [zoomLevel, colWidth]);
 
+  // Compute pixel offset for a date relative to rangeStart
+  const getSprintPx = useMemo(() => {
+    return (dateStr: string): number => {
+      const date = new Date(dateStr);
+      const days = calendarDaysDiff(rangeStart, date);
+      return days * pxPerDay;
+    };
+  }, [rangeStart, pxPerDay]);
+
   // Ordered array of item IDs matching the row order
   const itemOrder = useMemo(() => items.map((i) => i.id), [items]);
 
   return (
     <div className="relative" style={{ width: totalWidth, minHeight: totalHeight }}>
+      {/* Sprint bands — rendered first, behind everything */}
+      {sprints.filter((s) => s.startDate && s.endDate).map((sprint) => {
+        const startX = getSprintPx(sprint.startDate!);
+        const endX = getSprintPx(sprint.endDate!);
+        const width = endX - startX;
+        const isActive = sprint.status === "active";
+        const isCompleted = sprint.status === "completed";
+
+        return (
+          <div
+            key={sprint.id}
+            className="absolute top-0 bottom-0 pointer-events-none"
+            style={{
+              left: startX,
+              width,
+              backgroundColor: isActive
+                ? "color-mix(in srgb, var(--accent) 8%, transparent)"
+                : isCompleted
+                  ? "color-mix(in srgb, var(--text-secondary) 5%, transparent)"
+                  : "transparent",
+              borderLeft: `1px dashed ${isActive ? "var(--accent)" : "var(--border)"}`,
+              borderRight: `1px dashed ${isActive ? "var(--accent)" : "var(--border)"}`,
+            }}
+          >
+            <span
+              className="absolute top-1 left-1 text-[10px] font-medium"
+              style={{ color: isActive ? "var(--accent)" : "var(--text-secondary)" }}
+            >
+              {sprint.name}
+            </span>
+          </div>
+        );
+      })}
+
       {/* Column grid lines */}
       <div className="absolute inset-0 pointer-events-none" style={{ width: totalWidth }}>
         {columns.map((col, i) => (
@@ -84,7 +135,8 @@ export function GanttBody({
       {/* Rows and bars */}
       {items.map((item, idx) => {
         const sched = scheduleMap.get(item.id);
-        const assignee = item.assigneeId ? teamMap.get(item.assigneeId) : undefined;
+        const ids = item.assigneeIds ?? [];
+        const assignee = ids.length > 0 ? teamMap.get(ids[0]) : undefined;
 
         return (
           <GanttRow key={item.id} index={idx}>

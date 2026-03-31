@@ -7,7 +7,7 @@ import type { Item } from "@/types";
 function makeTask(overrides: Partial<Item> & { id: string }): Item {
   return {
     type: "task", title: "Task", description: "", status: "todo",
-    priority: "medium", assigneeId: null, estimatedDays: 1,
+    priority: "medium", assigneeIds: [], estimatedDays: 1,
     dependencies: [], tags: [], parentId: null, order: 0,
     createdAt: "2026-03-30T00:00:00Z", updatedAt: "2026-03-30T00:00:00Z",
     ...overrides,

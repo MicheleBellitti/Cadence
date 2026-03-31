@@ -45,9 +45,9 @@ function KanbanColumn({
     }
   }
 
-  function findTeamMember(assigneeId: string | null): TeamMember | undefined {
-    if (!assigneeId) return undefined;
-    return team.find((m) => m.id === assigneeId);
+  function findTeamMembers(assigneeIds: string[]): TeamMember[] {
+    const ids = assigneeIds ?? [];
+    return ids.map((id) => team.find((m) => m.id === id)).filter(Boolean) as TeamMember[];
   }
 
   return (
@@ -87,7 +87,7 @@ function KanbanColumn({
             <KanbanCard
               key={item.id}
               item={item}
-              teamMember={findTeamMember(item.assigneeId)}
+              teamMembers={findTeamMembers(item.assigneeIds)}
               onClick={() => onCardClick(item.id)}
             />
           ))}

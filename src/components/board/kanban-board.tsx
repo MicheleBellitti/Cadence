@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -21,7 +21,7 @@ import {
   useTeam,
   useActiveSprint,
 } from "@/stores/project-store";
-import type { Item, Status, ItemType, Priority } from "@/types";
+import type { Item, Status, ItemType, Priority, TeamMember } from "@/types";
 import { STATUSES } from "@/types";
 
 function KanbanBoard() {
@@ -30,6 +30,7 @@ function KanbanBoard() {
   const activeSprint = useActiveSprint();
   const addItem = useProjectStore((s) => s.addItem);
   const moveItem = useProjectStore((s) => s.moveItem);
+  const reorderItem = useProjectStore((s) => s.reorderItem);
 
   // Drag state
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -37,16 +38,20 @@ function KanbanBoard() {
   // Drawer state
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
-  // Sprint filter state
-  const [sprintFilter, setSprintFilter] = useState<string | null | "all">("all");
+  // Sprint filter state — initialize to active sprint if available
+  const [sprintFilter, setSprintFilter] = useState<string | null | "all">(
+    () => activeSprint?.id ?? "all"
+  );
   const [completeSprintId, setCompleteSprintId] = useState<string | null>(null);
 
-  // Auto-select active sprint on mount / when active sprint changes
-  useEffect(() => {
+  // Sync filter when active sprint changes (render-phase sync, no useEffect)
+  const [prevActiveId, setPrevActiveId] = useState(activeSprint?.id ?? null);
+  if ((activeSprint?.id ?? null) !== prevActiveId) {
+    setPrevActiveId(activeSprint?.id ?? null);
     if (activeSprint && sprintFilter === "all") {
       setSprintFilter(activeSprint.id);
     }
-  }, [activeSprint]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // Filter state
   const [filterEpic, setFilterEpic] = useState("");
@@ -109,7 +114,7 @@ function KanbanBoard() {
   const filteredItems = useMemo(() => {
     return sprintFilteredItems.filter((item) => {
       if (filterEpic && item.parentId !== filterEpic) return false;
-      if (filterAssignee && item.assigneeId !== filterAssignee) return false;
+      if (filterAssignee && !(item.assigneeIds ?? []).includes(filterAssignee)) return false;
       if (filterType && item.type !== filterType) return false;
       if (filterPriority && item.priority !== filterPriority) return false;
       return true;
@@ -140,11 +145,11 @@ function KanbanBoard() {
     [activeId, items]
   );
 
-  const activeTeamMember = useMemo(
-    () =>
-      activeItem?.assigneeId
-        ? team.find((m) => m.id === activeItem.assigneeId) ?? undefined
-        : undefined,
+  const activeTeamMembers = useMemo(
+    () => {
+      const ids = activeItem?.assigneeIds ?? [];
+      return ids.map((id) => team.find((m) => m.id === id)).filter(Boolean) as TeamMember[];
+    },
     [activeItem, team]
   );
 
@@ -187,29 +192,41 @@ function KanbanBoard() {
       const currentItem = items.find((i) => i.id === activeItemId);
       if (!currentItem) return;
 
-      // If status changed, move the item
-      if (currentItem.status !== targetStatus) {
-        moveItem(activeItemId, targetStatus);
+      if (currentItem.status === targetStatus) {
+        // Same column — reorder
+        const targetItemId = overId;
+        if (targetItemId !== activeItemId && !STATUSES.includes(targetItemId as Status)) {
+          const targetItem = items.find((i) => i.id === targetItemId);
+          if (targetItem) {
+            reorderItem(activeItemId, targetItem.order);
+          }
+        }
+        return;
       }
+
+      // Cross-column: status changed, move the item
+      moveItem(activeItemId, targetStatus);
     },
-    [items, moveItem]
+    [items, moveItem, reorderItem]
   );
 
   // Quick-add handler
   const handleQuickAdd = useCallback(
     (title: string, status: Status, type: ItemType = "task") => {
       type NewItem = Omit<Item, "id" | "createdAt" | "updatedAt" | "order">;
+      // Inherit the active sprint when a specific sprint is selected
+      const itemSprintId = (sprintFilter && sprintFilter !== "all") ? sprintFilter : null;
       const base = {
         title,
         description: "",
         status,
         priority: "medium" as Priority,
-        assigneeId: null,
+        assigneeIds: [],
         estimatedDays: 1,
         dependencies: [],
         tags: [],
         parentId: null,
-        sprintId: null,
+        sprintId: itemSprintId,
       };
       if (type === "epic") {
         addItem({ ...base, type: "epic", targetDate: null } as NewItem);
@@ -221,7 +238,7 @@ function KanbanBoard() {
         addItem({ ...base, type: "task" } as NewItem);
       }
     },
-    [addItem]
+    [addItem, sprintFilter]
   );
 
   const handleCardClick = useCallback((itemId: string) => {
@@ -297,7 +314,7 @@ function KanbanBoard() {
             {activeItem ? (
               <KanbanCard
                 item={activeItem}
-                teamMember={activeTeamMember}
+                teamMembers={activeTeamMembers}
                 onClick={() => {}}
               />
             ) : null}

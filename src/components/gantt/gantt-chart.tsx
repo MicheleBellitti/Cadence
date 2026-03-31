@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useItems, useTeam, useOverrides, useProjectStore } from "@/stores/project-store";
+import { useItems, useTeam, useOverrides, useProjectStore, useSprints } from "@/stores/project-store";
 import { useGanttStore } from "@/stores/gantt-store";
 import { scheduleForward } from "@/lib/scheduler";
 import { computeCriticalPath } from "@/lib/critical-path";
@@ -204,6 +204,7 @@ export function GanttChart() {
   const items = useItems();
   const team = useTeam();
   const overrides = useOverrides();
+  const sprints = useSprints();
   const deadline = useProjectStore((s) => s.project.deadline);
   const setOverride = useProjectStore((s) => s.setOverride);
   const updateItem = useProjectStore((s) => s.updateItem);
@@ -390,6 +391,7 @@ export function GanttChart() {
               onOverride={handleOverride}
               onUpdateDays={handleUpdateDays}
               colWidth={effectiveColWidth}
+              sprints={sprints}
             />
           </div>
         </div>

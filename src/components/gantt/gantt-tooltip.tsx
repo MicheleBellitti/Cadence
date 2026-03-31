@@ -7,7 +7,8 @@ import { ITEM_COLORS, STATUS_LABELS } from "@/types";
 interface GanttTooltipProps {
   item: Item;
   scheduled: ScheduledItem;
-  assignee: TeamMember | undefined;
+  assignee?: TeamMember;
+  assignees?: TeamMember[];
   x: number;
   y: number;
 }
@@ -23,6 +24,7 @@ export function GanttTooltip({
   item,
   scheduled,
   assignee,
+  assignees,
   x,
   y,
 }: GanttTooltipProps) {
@@ -65,7 +67,11 @@ export function GanttTooltip({
           </div>
           <div>Duration: {durationDays} calendar day{durationDays !== 1 ? "s" : ""} ({item.estimatedDays} business day{item.estimatedDays !== 1 ? "s" : ""})</div>
           <div>Status: {STATUS_LABELS[item.status]}</div>
-          <div>Assignee: {assignee ? assignee.name : "\u2014"}</div>
+          <div>Assignee{(assignees?.length ?? 0) > 1 ? "s" : ""}: {
+            assignees && assignees.length > 0
+              ? assignees.map((a) => a.name).join(", ")
+              : assignee ? assignee.name : "\u2014"
+          }</div>
         </div>
       </div>
     </div>

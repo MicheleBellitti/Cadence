@@ -1,28 +1,7 @@
 import type { Item, ScheduledItem } from "@/types";
-import { businessDaysBetween, isBusinessDay } from "./date-utils";
+import { parseDate, formatDate, businessDaysBetween, isBusinessDay } from "./date-utils";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Parses a YYYY-MM-DD string directly to UTC midnight.
- * This avoids local-timezone shifts that occur with new Date(year, month, day).
- * All internal Date arithmetic in this module uses UTC midnight.
- */
-function parseDateUTC(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-/**
- * Formats a UTC midnight date to a YYYY-MM-DD string.
- * Uses UTC accessors so the result is correct regardless of local timezone.
- */
-function formatDateUTC(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 /**
  * Returns the last business day strictly before `date`.
@@ -111,12 +90,12 @@ export function computeCriticalPath(
   let projectEnd: Date;
 
   if (deadline) {
-    projectEnd = parseDateUTC(deadline);
+    projectEnd = parseDate(deadline);
   } else {
     let maxEnd: Date | null = null;
     for (const s of scheduled) {
       if (s.earlyFinish) {
-        const d = parseDateUTC(s.earlyFinish);
+        const d = parseDate(s.earlyFinish);
         if (!maxEnd || d.getTime() > maxEnd.getTime()) {
           maxEnd = d;
         }
@@ -124,7 +103,7 @@ export function computeCriticalPath(
     }
     projectEnd =
       maxEnd ??
-      parseDateUTC(scheduled[0]?.earlyFinish ?? "2026-01-01");
+      parseDate(scheduled[0]?.earlyFinish ?? "2026-01-01");
   }
 
   // 4. Backward pass
@@ -186,15 +165,15 @@ export function computeCriticalPath(
       return s;
     }
 
-    const lateStartStr = formatDateUTC(ls);
-    const lateFinishStr = formatDateUTC(lf);
+    const lateStartStr = formatDate(ls);
+    const lateFinishStr = formatDate(lf);
 
     // Both earlyStart and lateStart are converted from strings directly to
-    // UTC midnight (via parseDateUTC), ensuring consistent comparison in
+    // UTC midnight (via parseDate), ensuring consistent comparison in
     // businessDaysBetween which normalizes to UTC midnight internally.
     const slack = businessDaysBetween(
-      parseDateUTC(s.earlyStart),
-      parseDateUTC(lateStartStr)
+      parseDate(s.earlyStart),
+      parseDate(lateStartStr)
     );
     const isCritical = slack === 0;
 

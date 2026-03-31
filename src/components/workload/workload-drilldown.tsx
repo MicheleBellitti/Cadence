@@ -44,7 +44,7 @@ export function WorkloadDrilldown({
           <p className="text-sm text-[var(--text-secondary)]">No items for this day.</p>
         ) : (
           contributingItems.map((item) => {
-            const hoursContributed = member.hoursPerDay;
+            const hoursContributed = member.hoursPerDay / (item.assigneeIds?.length || 1);
             return (
               <div
                 key={item.id}

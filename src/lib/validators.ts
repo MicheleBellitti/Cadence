@@ -8,8 +8,8 @@ const sprintStatusSchema = z.enum(["planning", "active", "completed"]);
 
 export const sprintSchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1),
-  goal: z.string(),
+  name: z.string().min(1).max(200),
+  goal: z.string().max(1000),
   status: sprintStatusSchema,
   startDate: z.string().nullable(),
   endDate: z.string().nullable(),
@@ -21,13 +21,13 @@ const baseItemSchema = z.object({
   id: z.string().min(1),
   type: itemTypeSchema,
   title: z.string().min(1).max(200),
-  description: z.string(),
+  description: z.string().max(10000),
   status: statusSchema,
   priority: prioritySchema,
-  assigneeId: z.string().nullable(),
+  assigneeIds: z.array(z.string()).default([]),
   estimatedDays: z.number().min(0),
   dependencies: z.array(z.string()),
-  tags: z.array(z.string()),
+  tags: z.array(z.string().max(50)).max(50),
   parentId: z.string().nullable(),
   sprintId: z.string().nullable(),
   order: z.number(),
@@ -43,7 +43,7 @@ const epicSchema = baseItemSchema.extend({
 const storySchema = baseItemSchema.extend({
   type: z.literal("story"),
   storyPoints: z.number().min(0),
-  acceptanceCriteria: z.string(),
+  acceptanceCriteria: z.string().max(5000),
 });
 
 const taskSchema = baseItemSchema.extend({
@@ -53,7 +53,7 @@ const taskSchema = baseItemSchema.extend({
 const bugSchema = baseItemSchema.extend({
   type: z.literal("bug"),
   severity: severitySchema,
-  stepsToReproduce: z.string(),
+  stepsToReproduce: z.string().max(5000),
 });
 
 export const itemSchema = z.discriminatedUnion("type", [
@@ -65,9 +65,9 @@ export const itemSchema = z.discriminatedUnion("type", [
 
 export const teamMemberSchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1),
-  color: z.string(),
-  role: z.string(),
+  name: z.string().min(1).max(100),
+  color: z.string().max(20),
+  role: z.string().max(100),
   hoursPerDay: z.number().min(0).max(24),
 });
 

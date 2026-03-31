@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useProjectStore, useTeam, useSprints } from "@/stores/project-store";
+import { useProjectStore, useTeam, useItems, useSprints } from "@/stores/project-store";
+import { hasCycle } from "@/lib/critical-path";
 import type { Item, ItemType, Status, Priority, Severity } from "@/types";
 import { STATUSES, STATUS_LABELS } from "@/types";
 
@@ -62,6 +64,7 @@ export function ItemForm({
   onCancel,
 }: ItemFormProps) {
   const team = useTeam();
+  const allItems = useItems();
   const sprints = useSprints();
   const isEditing = !!item;
 
@@ -70,12 +73,18 @@ export function ItemForm({
   const [description, setDescription] = useState(item?.description ?? "");
   const [status, setStatus] = useState<Status>(item?.status ?? defaultStatus ?? "todo");
   const [priority, setPriority] = useState<Priority>(item?.priority ?? "medium");
-  const [assigneeId, setAssigneeId] = useState<string>(item?.assigneeId ?? "");
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>(item?.assigneeIds ?? []);
   const [estimatedDays, setEstimatedDays] = useState<string>(
     item ? String(item.estimatedDays) : "0"
   );
   const [tagsInput, setTagsInput] = useState<string>(getInitialTagsInput(item));
   const [sprintId, setSprintId] = useState<string>(item?.sprintId ?? "");
+
+  // Dependencies & Parent
+  const [dependencies, setDependencies] = useState<string[]>(item?.dependencies ?? []);
+  const [parentId, setParentId] = useState<string>(
+    item ? (item.parentId ?? "") : (defaultParentId ?? "")
+  );
 
   // Epic-specific
   const [targetDate, setTargetDate] = useState<string>(
@@ -105,10 +114,11 @@ export function ItemForm({
     .map((t) => t.trim())
     .filter(Boolean);
 
-  const assigneeOptions = [
-    { value: "", label: "Unassigned" },
-    ...team.map((m) => ({ value: m.id, label: m.name })),
-  ];
+  const toggleAssignee = (id: string) => {
+    setSelectedAssignees((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
+    );
+  };
 
   const sprintStatusLabel = (status: string) => {
     if (status === "active") return "Active";
@@ -125,6 +135,32 @@ export function ItemForm({
         label: `${sp.name} (${sprintStatusLabel(sp.status)})`,
       })),
   ];
+
+  // Dependency options: all items except self and items that would create a cycle
+  const dependencyOptions = useMemo(() => {
+    return allItems
+      .filter((i) => i.id !== item?.id) // exclude self
+      .filter((i) => {
+        // Exclude items that would create a cycle
+        if (!item?.id) return true; // new item, no cycles possible
+        return !hasCycle(allItems, item.id, i.id);
+      })
+      .map((i) => ({
+        value: i.id,
+        label: i.title,
+        secondary: i.type,
+      }));
+  }, [allItems, item?.id]);
+
+  // Parent epic options: only epics, excluding self
+  const epicOptions = useMemo(() => {
+    return [
+      { value: "", label: "None (top-level)" },
+      ...allItems
+        .filter((i) => i.type === "epic" && i.id !== item?.id)
+        .map((i) => ({ value: i.id, label: i.title })),
+    ];
+  }, [allItems, item?.id]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -144,11 +180,11 @@ export function ItemForm({
       description,
       status,
       priority,
-      assigneeId: assigneeId || null,
+      assigneeIds: selectedAssignees,
       estimatedDays: parseFloat(estimatedDays) || 0,
       tags: parsedTags,
-      dependencies: item?.dependencies ?? [],
-      parentId: item ? item.parentId : (defaultParentId ?? null),
+      dependencies,
+      parentId: parentId || null,
       sprintId: sprintId || null,
     };
 
@@ -294,15 +330,41 @@ export function ItemForm({
         />
       </div>
 
-      {/* Assignee + Estimated Days */}
+      {/* Assignees + Estimated Days */}
       <div className="grid grid-cols-2 gap-3">
-        <Select
-          id="item-assignee"
-          label="Assignee"
-          value={assigneeId}
-          onChange={(e) => setAssigneeId(e.target.value)}
-          options={assigneeOptions}
-        />
+        <div>
+          <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+            Assignees
+          </label>
+          {team.length === 0 ? (
+            <p className="text-xs text-[var(--text-secondary)]">No team members</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {team.map((m) => {
+                const isSelected = selectedAssignees.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggleAssignee(m.id)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-colors border"
+                    style={{
+                      backgroundColor: isSelected ? m.color + "20" : "var(--bg-primary)",
+                      borderColor: isSelected ? m.color : "var(--border)",
+                      color: isSelected ? m.color : "var(--text-secondary)",
+                    }}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: m.color }}
+                    />
+                    {m.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <Input
           id="item-estimated-days"
           label="Estimated Days"
@@ -321,6 +383,28 @@ export function ItemForm({
         value={sprintId}
         onChange={(e) => setSprintId(e.target.value)}
         options={sprintOptions}
+      />
+
+      {/* Parent Epic */}
+      {type !== "epic" && (
+        <Select
+          id="item-parent"
+          label="Parent Epic"
+          value={parentId}
+          onChange={(e) => setParentId(e.target.value)}
+          options={epicOptions}
+        />
+      )}
+
+      {/* Dependencies */}
+      <MultiSelect
+        id="item-dependencies"
+        label="Dependencies (blocks this item)"
+        options={dependencyOptions}
+        selected={dependencies}
+        onChange={setDependencies}
+        placeholder="Search items to add as dependency..."
+        emptyMessage="No other items to depend on"
       />
 
       {/* Tags */}

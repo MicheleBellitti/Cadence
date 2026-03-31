@@ -24,7 +24,7 @@ export interface BaseItem {
   description: string;
   status: Status;
   priority: Priority;
-  assigneeId: string | null;
+  assigneeIds: string[];
   estimatedDays: number;
   dependencies: string[];
   tags: string[];

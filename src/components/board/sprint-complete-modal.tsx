@@ -63,9 +63,13 @@ function SprintCompleteModal({ open, onClose, sprintId }: SprintCompleteModalPro
     [sprints]
   );
 
-  function getAssigneeName(assigneeId: string | null): string | null {
-    if (!assigneeId) return null;
-    return team.find((m) => m.id === assigneeId)?.name ?? null;
+  function getAssigneeNames(assigneeIds: string[]): string | null {
+    const ids = assigneeIds ?? [];
+    if (ids.length === 0) return null;
+    return ids
+      .map((id) => team.find((m) => m.id === id)?.name)
+      .filter(Boolean)
+      .join(", ") || null;
   }
 
   function handleMoveToNext() {
@@ -113,7 +117,7 @@ function SprintCompleteModal({ open, onClose, sprintId }: SprintCompleteModalPro
             </h3>
             <div className="max-h-48 overflow-y-auto flex flex-col gap-1 border border-[var(--border)] rounded-lg">
               {incompleteItems.map((item) => {
-                const assigneeName = getAssigneeName(item.assigneeId);
+                const assigneeName = getAssigneeNames(item.assigneeIds);
                 return (
                   <div
                     key={item.id}

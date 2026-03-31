@@ -60,9 +60,9 @@ export const GanttTaskList = forwardRef<HTMLDivElement, GanttTaskListProps>(
             </div>
           )}
           {items.map((item, idx) => {
-            const assignee = item.assigneeId
-              ? teamMap.get(item.assigneeId)
-              : undefined;
+            const ids = item.assigneeIds ?? [];
+            const assignees = ids.map((id) => teamMap.get(id)).filter(Boolean) as typeof team;
+            const assignee = assignees[0];
             const sched = scheduleMap.get(item.id);
             const isSelected = item.id === selectedItemId;
 
@@ -97,10 +97,23 @@ export const GanttTaskList = forwardRef<HTMLDivElement, GanttTaskListProps>(
                   </span>
                 </div>
 
-                {/* Assignee */}
-                <span className="w-20 text-right text-xs text-[var(--text-secondary)] truncate shrink-0">
-                  {assignee ? assignee.name : "\u2014"}
-                </span>
+                {/* Assignees */}
+                <div className="w-24 flex items-center justify-end gap-0.5 shrink-0">
+                  {assignees.length > 0 ? (
+                    assignees.map((m) => (
+                      <div
+                        key={m.id}
+                        className="w-5 h-5 rounded-full text-[9px] font-bold text-white flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: m.color }}
+                        title={m.name}
+                      >
+                        {m.name[0]}
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-xs text-[var(--text-secondary)]">{"\u2014"}</span>
+                  )}
+                </div>
 
                 {/* Days */}
                 <span className="w-12 text-right text-xs text-[var(--text-secondary)] tabular-nums shrink-0">
