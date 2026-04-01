@@ -61,6 +61,10 @@ export function NoProjectScreen() {
     e.preventDefault();
     const name = projectName.trim();
     if (!name) return;
+    if (name.length > 100) {
+      setCreateError("Project name must be 100 characters or less.");
+      return;
+    }
     setCreateError("");
     setCreating(true);
     try {

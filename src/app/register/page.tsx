@@ -17,14 +17,12 @@ function getErrorMessage(err: unknown): string {
       return "Password must be at least 6 characters.";
     case "auth/too-many-requests":
       return "Too many attempts. Please try again later.";
-    case "permission-denied":
-    case "PERMISSION_DENIED":
-      return "Firestore security rules blocked the write. Deploy your firestore.rules first.";
-    default: {
-      // Surface the real error during development
-      const msg = err instanceof Error ? err.message : String(err);
-      return `Account creation failed: ${msg}`;
-    }
+    default:
+      if (process.env.NODE_ENV === "development") {
+        const msg = err instanceof Error ? err.message : String(err);
+        return `Account creation failed: ${msg}`;
+      }
+      return "Account creation failed. Please try again.";
   }
 }
 
@@ -39,6 +37,7 @@ export default function RegisterPage() {
 
   function validate(): string | null {
     if (!displayName.trim()) return "Display name is required.";
+    if (displayName.trim().length > 100) return "Display name must be 100 characters or less.";
     if (password.length < 6) return "Password must be at least 6 characters.";
     if (password !== confirmPassword) return "Passwords do not match.";
     return null;

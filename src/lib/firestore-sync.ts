@@ -7,6 +7,8 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  arrayUnion,
+  arrayRemove,
   type Firestore,
   type DocumentData,
   type Unsubscribe,
@@ -423,12 +425,13 @@ export async function firestoreAddDependency(
   db: Firestore,
   projectId: string,
   itemId: string,
-  currentDeps: string[],
+  _currentDeps: string[],
   dependsOnId: string,
   uid: string,
 ): Promise<void> {
+  // arrayUnion is atomic — safe when multiple users edit the same item concurrently.
   await updateDoc(doc(db, "projects", projectId, "items", itemId), {
-    dependencies: [...currentDeps, dependsOnId],
+    dependencies: arrayUnion(dependsOnId),
     updatedBy: uid,
     updatedAt: serverTimestamp(),
   });
@@ -438,12 +441,13 @@ export async function firestoreRemoveDependency(
   db: Firestore,
   projectId: string,
   itemId: string,
-  currentDeps: string[],
+  _currentDeps: string[],
   dependsOnId: string,
   uid: string,
 ): Promise<void> {
+  // arrayRemove is atomic — safe when multiple users edit the same item concurrently.
   await updateDoc(doc(db, "projects", projectId, "items", itemId), {
-    dependencies: currentDeps.filter((d) => d !== dependsOnId),
+    dependencies: arrayRemove(dependsOnId),
     updatedBy: uid,
     updatedAt: serverTimestamp(),
   });

@@ -19,10 +19,8 @@ function getErrorMessage(err: unknown): string {
       return "This account has been disabled.";
     case "auth/too-many-requests":
       return "Too many failed attempts. Please try again later.";
-    default: {
-      const msg = err instanceof Error ? err.message : String(err);
-      return `Sign in failed: ${msg}`;
-    }
+    default:
+      return "Sign in failed. Please try again.";
   }
 }
 
