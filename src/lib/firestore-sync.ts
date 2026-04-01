@@ -269,11 +269,13 @@ export async function firestoreUpdateProject(
 export async function firestoreAddItem(
   db: Firestore,
   projectId: string,
-  item: Omit<Item, "id">,
+  item: Omit<Item, "id"> & { id?: string },
   uid: string,
 ): Promise<string> {
-  const ref = doc(collection(db, "projects", projectId, "items"));
-  const { ...data } = item;
+  const ref = item.id
+    ? doc(db, "projects", projectId, "items", item.id)
+    : doc(collection(db, "projects", projectId, "items"));
+  const { id: _id, ...data } = item;
   await setDoc(
     ref,
     stripUndefined({
@@ -436,10 +438,13 @@ export async function firestoreAssignToSprint(
 export async function firestoreAddTeamMember(
   db: Firestore,
   projectId: string,
-  member: Omit<TeamMember, "id">,
+  member: Omit<TeamMember, "id"> & { id?: string },
 ): Promise<string> {
-  const ref = doc(collection(db, "projects", projectId, "team"));
-  await setDoc(ref, stripUndefined({ ...member }));
+  const ref = member.id
+    ? doc(db, "projects", projectId, "team", member.id)
+    : doc(collection(db, "projects", projectId, "team"));
+  const { id: _id, ...data } = member;
+  await setDoc(ref, stripUndefined({ ...data }));
   return ref.id;
 }
 
@@ -486,10 +491,12 @@ export async function firestoreRemoveTeamMember(
 export async function firestoreAddSprint(
   db: Firestore,
   projectId: string,
-  sprint: Omit<Sprint, "id">,
+  sprint: Omit<Sprint, "id"> & { id?: string },
 ): Promise<string> {
-  const ref = doc(collection(db, "projects", projectId, "sprints"));
-  const { ...data } = sprint;
+  const ref = sprint.id
+    ? doc(db, "projects", projectId, "sprints", sprint.id)
+    : doc(collection(db, "projects", projectId, "sprints"));
+  const { id: _id, ...data } = sprint;
   await setDoc(ref, {
     ...data,
     createdAt: serverTimestamp(),

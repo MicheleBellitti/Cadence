@@ -204,9 +204,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const { project } = get();
       const addedItem = project.items.find((i) => i.id === id);
       if (addedItem) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { id: _id, ...rest } = addedItem;
-        firestoreAddItem(db, projectId, rest, "").catch(console.error);
+        firestoreAddItem(db, projectId, addedItem, "").catch(console.error);
       }
     }
     return id;
@@ -433,7 +431,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreAddTeamMember(db, projectId, member).catch(console.error);
+      firestoreAddTeamMember(db, projectId, { ...member, id }).catch(console.error);
     }
     return id;
   },
@@ -599,9 +597,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, ...rest } = sprint;
-      firestoreAddSprint(db, projectId, rest).catch(console.error);
+      firestoreAddSprint(db, projectId, sprint).catch(console.error);
     }
     return id;
   },
