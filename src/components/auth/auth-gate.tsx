@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "./auth-provider";
+import { NoProjectScreen } from "./no-project-screen";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
@@ -40,6 +41,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (user && isPublic) {
     return null;
+  }
+
+  // Authenticated but no project assigned yet — show the project setup screen
+  if (user && user.projectId === null && !isPublic) {
+    return <NoProjectScreen />;
   }
 
   return <>{children}</>;
