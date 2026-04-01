@@ -30,6 +30,10 @@ service cloud.firestore {
         && request.resource.data.memberIds == resource.data.memberIds
         && request.resource.data.ownerId == resource.data.ownerId;
 
+      // Delete: only the owner can delete the project
+      allow delete: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+
       // Special invite acceptance: invitee can add themselves to memberIds
       // Conditions:
       //   - caller is authenticated
@@ -69,6 +73,10 @@ service cloud.firestore {
       // The invitee (matched by email) can read their invite
       allow read: if request.auth != null
         && request.auth.token.email == resource.data.email;
+
+      // Project members can list invites for their project
+      allow read: if request.auth != null
+        && isMember(resource.data.projectId);
 
       // The invitee can update the invite status to 'accepted' only
       allow update: if request.auth != null

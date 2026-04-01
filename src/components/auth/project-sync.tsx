@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useProjectStore } from "@/stores/project-store";
 import {
@@ -22,13 +22,13 @@ export function ProjectSync({ children }: { children: React.ReactNode }) {
   const [migrationState, setMigrationState] = useState<MigrationState>("idle");
   const [localProject, setLocalProject] = useState<Project | null>(null);
   const [migrationError, setMigrationError] = useState<string | null>(null);
-  const checkedRef = { current: false };
+  const checkedRef = useRef(false);
 
   useEffect(() => {
-    if (!projectId) return;
-    const unsubscribes = initSync(projectId);
+    if (!projectId || !user) return;
+    const unsubscribes = initSync(projectId, user.uid);
     return () => unsubscribes.forEach((unsub) => unsub());
-  }, [projectId, initSync]);
+  }, [projectId, user, initSync]);
 
   // After Firestore finishes loading, check for localStorage data to migrate.
   // We use startTransition-style batching: both state updates happen in the same
@@ -77,7 +77,7 @@ export function ProjectSync({ children }: { children: React.ReactNode }) {
     setMigrationState("done");
   }
 
-  if (!projectId) return null; // "No Project" screen handled by AuthGate
+  if (!projectId) return <>{children}</>; // No project yet — pass through (AuthGate handles redirect/no-project screen)
 
   if (loading) {
     return (

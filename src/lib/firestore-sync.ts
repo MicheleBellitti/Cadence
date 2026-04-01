@@ -245,12 +245,12 @@ export async function firestoreCreateProject(
 }
 
 /**
- * Update project metadata (name, deadline).
+ * Update project metadata (name, deadline, activeSprint).
  */
 export async function firestoreUpdateProject(
   db: Firestore,
   projectId: string,
-  updates: Partial<{ name: string; deadline: string | null }>,
+  updates: Partial<{ name: string; deadline: string | null; activeSprint: string | null }>,
 ): Promise<void> {
   await updateDoc(
     doc(db, "projects", projectId),

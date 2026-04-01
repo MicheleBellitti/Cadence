@@ -419,5 +419,5 @@ export async function loadSeedData(projectId: string): Promise<void> {
   await batch.commit();
 
   // Update project metadata (activeSprint + name)
-  await firestoreUpdateProject(db, projectId, { name: "AI Platform" });
+  await firestoreUpdateProject(db, projectId, { name: "AI Platform", activeSprint: "sprint-2" });
 }

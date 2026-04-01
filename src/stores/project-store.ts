@@ -58,6 +58,7 @@ function emptyProject(): Project {
 interface ProjectState {
   project: Project;
   projectId: string | null;
+  uid: string;              // Firebase UID of current user
   loading: boolean;
   syncing: boolean;
 
@@ -72,7 +73,7 @@ interface ProjectState {
   _setProjectId: (id: string) => void;
 
   // Initialize sync (called by ProjectSync component)
-  initializeSync: (projectId: string) => Unsubscribe[];
+  initializeSync: (projectId: string, uid: string) => Unsubscribe[];
 
   // Item CRUD
   addItem: (
@@ -120,6 +121,7 @@ interface ProjectState {
 export const useProjectStore = create<ProjectState>()((set, get) => ({
   project: emptyProject(),
   projectId: null,
+  uid: "",
   loading: true,
   syncing: false,
 
@@ -148,8 +150,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   // ─── Initialize sync ───────────────────────────────────────────────────────
 
-  initializeSync: (projectId) => {
-    set({ projectId, loading: true });
+  initializeSync: (projectId, uid) => {
+    set({ projectId, uid, loading: true });
     const unsubscribes = subscribeToProject(db, projectId, {
       onProjectUpdate: (data) =>
         set((state) => ({ project: { ...state.project, ...data } })),
@@ -204,7 +206,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const { project } = get();
       const addedItem = project.items.find((i) => i.id === id);
       if (addedItem) {
-        firestoreAddItem(db, projectId, addedItem, "").catch(console.error);
+        firestoreAddItem(db, projectId, addedItem, get().uid).catch(console.error);
       }
     }
     return id;
@@ -229,7 +231,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreUpdateItem(db, projectId, id, updates, "").catch(
+      firestoreUpdateItem(db, projectId, id, updates, get().uid).catch(
         console.error
       );
     }
@@ -304,7 +306,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreMoveItem(db, projectId, id, status, "").catch(console.error);
+      firestoreMoveItem(db, projectId, id, status, get().uid).catch(console.error);
     }
   },
 
@@ -327,7 +329,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreReorderItem(db, projectId, id, newOrder, "").catch(
+      firestoreReorderItem(db, projectId, id, newOrder, get().uid).catch(
         console.error
       );
     }
@@ -368,7 +370,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         itemId,
         currentDeps,
         dependsOnId,
-        ""
+        get().uid
       ).catch(console.error);
     }
   },
@@ -408,7 +410,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         itemId,
         currentDeps,
         dependsOnId,
-        ""
+        get().uid
       ).catch(console.error);
     }
   },
@@ -791,7 +793,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreAssignToSprint(db, projectId, itemId, sprintId, "").catch(
+      firestoreAssignToSprint(db, projectId, itemId, sprintId, get().uid).catch(
         console.error
       );
     }

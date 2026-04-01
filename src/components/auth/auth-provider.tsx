@@ -91,23 +91,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        setFirebaseUser(fbUser);
-        const userData = await fetchOrCreateUserDoc(fbUser);
-        setUser(userData);
-        if (userData) {
-          await fetchPendingInvitesForUser(userData);
+    let unsubscribe: (() => void) | undefined;
+    try {
+      unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+        if (fbUser) {
+          setFirebaseUser(fbUser);
+          const userData = await fetchOrCreateUserDoc(fbUser);
+          setUser(userData);
+          if (userData) {
+            await fetchPendingInvitesForUser(userData);
+          }
+        } else {
+          setFirebaseUser(null);
+          setUser(undefined); // explicitly unauthenticated
+          setPendingInvites([]);
         }
-      } else {
-        setFirebaseUser(null);
-        setUser(undefined); // explicitly unauthenticated
-        setPendingInvites([]);
-      }
+        setLoading(false);
+      });
+    } catch {
+      // Firebase not configured (missing API key, etc.) — treat as unauthenticated
+      console.error("Firebase Auth initialization failed. Check your .env.local configuration.");
+      setUser(undefined);
       setLoading(false);
-    });
+    }
 
-    return unsubscribe;
+    return () => unsubscribe?.();
   }, []);
 
   const refreshUser = useCallback(async () => {
