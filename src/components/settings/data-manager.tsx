@@ -1,28 +1,56 @@
 "use client";
 import { useRef, useState } from "react";
-import { useProjectStore } from "@/stores/project-store";
+import { writeBatch, doc, serverTimestamp } from "firebase/firestore";
+import { getFirebaseDb } from "@/lib/firebase";
+import { useProjectStore, useProjectId } from "@/stores/project-store";
+import { useAuth } from "@/components/auth/auth-provider";
+import { firestoreUpdateProject } from "@/lib/firestore-sync";
 import { loadSeedData } from "@/lib/seed-data";
 import { exportJSON, importJSON } from "@/lib/export";
 import { Button } from "@/components/ui/button";
+import type { Project } from "@/types";
 
 export function DataManager() {
   const project = useProjectStore((s) => s.project);
-  const resetProject = useProjectStore((s) => s.resetProject);
-  const importProject = useProjectStore((s) => s.importProject);
+  const projectId = useProjectId();
+  const { user } = useAuth();
   const [confirmReset, setConfirmReset] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleLoadSample() {
+  async function handleLoadSample() {
+    if (!projectId) return;
     if (window.confirm("This will replace all current data. Continue?")) {
-      loadSeedData();
+      setLoading(true);
+      try {
+        // Delete all existing sub-collection docs first
+        await deleteAllProjectData(projectId, project);
+        // Write seed data to Firestore
+        await loadSeedData(projectId);
+      } catch (err) {
+        console.error("Failed to load sample data:", err);
+        alert("Failed to load sample data. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     }
   }
 
-  function handleReset() {
+  async function handleReset() {
+    if (!projectId) return;
     if (confirmReset) {
-      resetProject();
-      setConfirmReset(false);
+      setLoading(true);
+      try {
+        await deleteAllProjectData(projectId, project);
+        await firestoreUpdateProject(getFirebaseDb(), projectId, { name: "My Project", deadline: null });
+        setConfirmReset(false);
+      } catch (err) {
+        console.error("Failed to reset project:", err);
+        alert("Failed to reset project. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     } else {
       setConfirmReset(true);
     }
@@ -34,13 +62,25 @@ export function DataManager() {
 
   async function handleImportJSON(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !projectId) return;
 
     setImportError(null);
     try {
       const imported = await importJSON(file);
       if (window.confirm("This will replace all current project data with the imported file. Continue?")) {
-        importProject(imported);
+        setLoading(true);
+        try {
+          // Delete all existing sub-collection docs
+          await deleteAllProjectData(projectId, project);
+          // Write imported data to Firestore
+          await writeProjectDataToFirestore(projectId, imported, user?.uid ?? "");
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          setImportError(`Import failed: ${message}`);
+          alert(`Import failed: ${message}`);
+        } finally {
+          setLoading(false);
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -68,7 +108,7 @@ export function DataManager() {
               Replace current project with a realistic sample project to explore the app.
             </p>
           </div>
-          <Button variant="secondary" size="sm" onClick={handleLoadSample}>
+          <Button variant="secondary" size="sm" onClick={handleLoadSample} disabled={loading}>
             Load Sample
           </Button>
         </div>
@@ -117,6 +157,7 @@ export function DataManager() {
               variant="secondary"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
             >
               Import JSON
             </Button>
@@ -141,11 +182,12 @@ export function DataManager() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setConfirmReset(false)}
+                disabled={loading}
               >
                 Cancel
               </Button>
             )}
-            <Button variant="danger" size="sm" onClick={handleReset}>
+            <Button variant="danger" size="sm" onClick={handleReset} disabled={loading}>
               {confirmReset ? "Confirm Reset" : "Reset Project"}
             </Button>
           </div>
@@ -153,4 +195,99 @@ export function DataManager() {
       </div>
     </section>
   );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const BATCH_LIMIT = 499;
+
+/**
+ * Delete all sub-collection documents for the given project.
+ * Uses multiple batches if needed to stay within the 500-op Firestore limit.
+ */
+async function deleteAllProjectData(projectId: string, project: Project): Promise<void> {
+  let batch = writeBatch(getFirebaseDb());
+  let count = 0;
+  const batches: ReturnType<typeof writeBatch>[] = [batch];
+
+  function addDelete(col: string, id: string) {
+    if (count >= BATCH_LIMIT) {
+      batch = writeBatch(getFirebaseDb());
+      batches.push(batch);
+      count = 0;
+    }
+    batch.delete(doc(getFirebaseDb(),"projects", projectId, col, id));
+    count++;
+  }
+
+  for (const item of project.items) addDelete("items", item.id);
+  for (const member of project.team) addDelete("team", member.id);
+  for (const sprint of project.sprints) addDelete("sprints", sprint.id);
+  for (const override of project.overrides) addDelete("overrides", override.itemId);
+
+  await Promise.all(batches.map((b) => b.commit()));
+}
+
+/**
+ * Write all entities from an imported Project to Firestore.
+ * Uses multiple batches if needed to stay within the 500-op limit.
+ */
+async function writeProjectDataToFirestore(
+  projectId: string,
+  project: Project,
+  uid: string,
+): Promise<void> {
+  let batch = writeBatch(getFirebaseDb());
+  let count = 0;
+  const batches: ReturnType<typeof writeBatch>[] = [batch];
+
+  function addSet(col: string, id: string, data: Record<string, unknown>) {
+    if (count >= BATCH_LIMIT) {
+      batch = writeBatch(getFirebaseDb());
+      batches.push(batch);
+      count = 0;
+    }
+    batch.set(doc(getFirebaseDb(),"projects", projectId, col, id), data);
+    count++;
+  }
+
+  // Write items
+  for (const item of project.items) {
+    const { id, ...data } = item;
+    addSet("items", id, {
+      ...data,
+      updatedBy: uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  // Write team members
+  for (const member of project.team) {
+    const { id, ...data } = member;
+    addSet("team", id, data);
+  }
+
+  // Write sprints
+  for (const sprint of project.sprints) {
+    const { id, ...data } = sprint;
+    addSet("sprints", id, {
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  // Write overrides
+  for (const override of project.overrides) {
+    addSet("overrides", override.itemId, { startDate: override.startDate });
+  }
+
+  await Promise.all(batches.map((b) => b.commit()));
+
+  // Update project metadata
+  await firestoreUpdateProject(getFirebaseDb(), projectId, {
+    name: project.name,
+    deadline: project.deadline,
+  });
 }

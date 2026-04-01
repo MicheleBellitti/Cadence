@@ -1,7 +1,9 @@
-import { useProjectStore } from "@/stores/project-store";
-import type { Project, Epic, Story, Task, Bug, TeamMember, Sprint } from "@/types";
+import { writeBatch, doc, serverTimestamp } from "firebase/firestore";
+import { getFirebaseDb } from "@/lib/firebase";
+import { firestoreUpdateProject } from "@/lib/firestore-sync";
+import type { Epic, Story, Task, Bug, TeamMember, Sprint } from "@/types";
 
-export function loadSeedData(): void {
+export async function loadSeedData(projectId: string): Promise<void> {
   const TIMESTAMP = "2026-03-01T09:00:00.000Z";
 
   // Compute sprint dates dynamically relative to today
@@ -361,35 +363,61 @@ export function loadSeedData(): void {
     updatedAt: TIMESTAMP,
   };
 
-  const project: Project = {
-    id: "seed-project-1",
-    name: "AI Platform",
-    deadline: null,
-    team,
-    items: [
-      epic1,
-      epic2,
-      story1,
-      story2,
-      story3,
-      story4,
-      task1,
-      task2,
-      task3,
-      task4,
-      task5,
-      task6,
-      task7,
-      task8,
-      bug1,
-      bug2,
-    ],
-    overrides: [],
-    sprints: [sprint1, sprint2],
-    activeSprint: "sprint-2",
-    createdAt: TIMESTAMP,
-    updatedAt: TIMESTAMP,
-  };
+  const items = [
+    epic1,
+    epic2,
+    story1,
+    story2,
+    story3,
+    story4,
+    task1,
+    task2,
+    task3,
+    task4,
+    task5,
+    task6,
+    task7,
+    task8,
+    bug1,
+    bug2,
+  ];
 
-  useProjectStore.getState().importProject(project);
+  const sprints = [sprint1, sprint2];
+
+  // Write all seed data in a single batch (well within 500 op limit)
+  const batch = writeBatch(getFirebaseDb());
+
+  // Write items
+  items.forEach((item) => {
+    const { id, ...data } = item;
+    const ref = doc(getFirebaseDb(),"projects", projectId, "items", id);
+    batch.set(ref, {
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  // Write team members
+  team.forEach((member) => {
+    const { id, ...data } = member;
+    const ref = doc(getFirebaseDb(),"projects", projectId, "team", id);
+    batch.set(ref, data);
+  });
+
+  // Write sprints
+  sprints.forEach((sprint) => {
+    const { id, ...data } = sprint;
+    const ref = doc(getFirebaseDb(),"projects", projectId, "sprints", id);
+    batch.set(ref, {
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  await batch.commit();
+
+  // Update project metadata (activeSprint + name)
+  await firestoreUpdateProject(getFirebaseDb(), projectId, { name: "AI Platform", activeSprint: "sprint-2" });
 }

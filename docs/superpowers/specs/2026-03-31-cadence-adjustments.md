@@ -135,7 +135,15 @@ addSprint: (sprint: Omit<Sprint, "id" | "createdAt" | "updatedAt">) => string;
 updateSprint: (id: string, updates: Partial<Sprint>) => void;
 deleteSprint: (id: string) => void;
 startSprint: (id: string, durationDays?: number) => void;
+// Guard: if another sprint is already active, throw an error.
+// UI: "Start Sprint" button is disabled when activeSprint !== null.
+
 completeSprint: (id: string, moveIncomplete: "next" | "backlog") => void;
+// "next" = the first sprint in "planning" status, ordered by createdAt.
+// If no planning sprint exists when "next" is chosen, the action falls back
+// to "backlog" and the UI shows a toast: "No planning sprint found — items moved to backlog."
+// UI: the "Move to next sprint" option is disabled (greyed out with tooltip)
+// when no sprint in "planning" status exists.
 
 // Item-sprint assignment
 assignToSprint: (itemId: string, sprintId: string | null) => void;
@@ -156,6 +164,12 @@ Add `sprintSchema` to `validators.ts`. Add `sprintId` to base item schema. Add `
 - When active sprint exists: board shows only items with matching sprintId
 - "Show Backlog" toggle: shows items with sprintId = null
 - "Show All" toggle: removes sprint filter
+
+**Hierarchy rules for sprint filtering:**
+- **Epics** are never assigned to sprints (they span multiple sprints). Epics are always visible on the board regardless of sprint filter — they serve as grouping headers.
+- **Stories, Tasks, Bugs** can be assigned to sprints via `sprintId`.
+- When filtering by sprint: show all items with matching `sprintId`, plus their parent Epic (if any) for context. Do NOT show child items of a parent just because the parent is in the sprint — each item's `sprintId` is authoritative.
+- A Story can be in sprint A while its child Tasks are in sprint B (or backlog). This is valid and expected.
 
 **Sprint completion dialog:**
 - Modal listing incomplete items
