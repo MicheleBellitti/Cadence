@@ -1,9 +1,11 @@
 "use client";
-import { useState } from "react";
-import { useTeam, useProjectStore } from "@/stores/project-store";
-import type { TeamMember } from "@/types";
+import { useState, useEffect, useCallback } from "react";
+import { useTeam, useProjectStore, useProjectId } from "@/stores/project-store";
+import { useAuth } from "@/components/auth/auth-provider";
+import type { TeamMember, Invite } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { createInvite, getPendingInvitesForProject } from "@/lib/invite";
 
 
 const PRESET_COLORS = [
@@ -210,6 +212,133 @@ function MemberCard({
   );
 }
 
+function InviteSection() {
+  const { user } = useAuth();
+  const projectId = useProjectId();
+
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteStatus, setInviteStatus] = useState<
+    { type: "success"; message: string } | { type: "error"; message: string } | null
+  >(null);
+  const [sending, setSending] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
+
+  const loadPendingInvites = useCallback(async () => {
+    if (!projectId) return;
+    setLoadingInvites(true);
+    try {
+      const invites = await getPendingInvitesForProject(projectId);
+      setPendingInvites(invites);
+    } catch {
+      // Silently ignore — invites list is informational
+    } finally {
+      setLoadingInvites(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    void loadPendingInvites();
+  }, [loadPendingInvites]);
+
+  async function handleSendInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim() || !projectId || !user) return;
+
+    setSending(true);
+    setInviteStatus(null);
+
+    try {
+      await createInvite(projectId, inviteEmail.trim(), user.uid);
+      setInviteStatus({
+        type: "success",
+        message: `Invite sent to ${inviteEmail.trim()}`,
+      });
+      setInviteEmail("");
+      void loadPendingInvites();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to send invite";
+      setInviteStatus({ type: "error", message });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <section className="mt-8">
+      <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">
+        Invite Member
+      </h2>
+
+      <form
+        onSubmit={(e) => { void handleSendInvite(e); }}
+        className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-4 space-y-3"
+      >
+        <div className="flex gap-2 items-end">
+          <div className="flex-1">
+            <Input
+              id="invite-email"
+              label="Email address"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="colleague@example.com"
+              required
+            />
+          </div>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            disabled={sending || !inviteEmail.trim()}
+          >
+            {sending ? "Sending…" : "Send Invite"}
+          </Button>
+        </div>
+
+        {inviteStatus && (
+          <p
+            className={`text-sm px-3 py-2 rounded-md ${
+              inviteStatus.type === "success"
+                ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+            }`}
+          >
+            {inviteStatus.message}
+          </p>
+        )}
+      </form>
+
+      {/* Pending invites list */}
+      {loadingInvites ? (
+        <p className="text-sm text-[var(--text-secondary)] mt-3">
+          Loading pending invites…
+        </p>
+      ) : pendingInvites.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          <p className="text-sm font-medium text-[var(--text-secondary)]">
+            Pending invites
+          </p>
+          {pendingInvites.map((invite) => (
+            <div
+              key={invite.id}
+              className="flex items-center gap-3 px-4 py-2.5 bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg"
+            >
+              <span className="flex-1 text-sm text-[var(--text-primary)] truncate">
+                {invite.email}
+              </span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400 flex-shrink-0">
+                Pending
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function TeamManager() {
   const team = useTeam();
   const addTeamMember = useProjectStore((s) => s.addTeamMember);
@@ -230,55 +359,59 @@ export function TeamManager() {
   }
 
   return (
-    <section>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-          Team Members
-        </h2>
-        {!showAddForm && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              setShowAddForm(true);
-              setEditingId(null);
-            }}
-          >
-            + Add Member
-          </Button>
-        )}
-      </div>
+    <>
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+            Team Members
+          </h2>
+          {!showAddForm && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setShowAddForm(true);
+                setEditingId(null);
+              }}
+            >
+              + Add Member
+            </Button>
+          )}
+        </div>
 
-      <div className="space-y-2">
-        {team.length === 0 && !showAddForm && (
-          <p className="text-sm text-[var(--text-secondary)] py-4 text-center bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl">
-            No team members yet. Add one to get started.
-          </p>
-        )}
+        <div className="space-y-2">
+          {team.length === 0 && !showAddForm && (
+            <p className="text-sm text-[var(--text-secondary)] py-4 text-center bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl">
+              No team members yet. Add one to get started.
+            </p>
+          )}
 
-        {team.map((member) => (
-          <MemberCard
-            key={member.id}
-            member={member}
-            isEditing={editingId === member.id}
-            onEdit={() => {
-              setEditingId(member.id);
-              setShowAddForm(false);
-            }}
-            onDelete={() => removeTeamMember(member.id)}
-            onSaveEdit={(data) => handleSaveEdit(member.id, data)}
-            onCancelEdit={() => setEditingId(null)}
-          />
-        ))}
+          {team.map((member) => (
+            <MemberCard
+              key={member.id}
+              member={member}
+              isEditing={editingId === member.id}
+              onEdit={() => {
+                setEditingId(member.id);
+                setShowAddForm(false);
+              }}
+              onDelete={() => removeTeamMember(member.id)}
+              onSaveEdit={(data) => handleSaveEdit(member.id, data)}
+              onCancelEdit={() => setEditingId(null)}
+            />
+          ))}
 
-        {showAddForm && (
-          <MemberForm
-            onSave={handleAdd}
-            onCancel={() => setShowAddForm(false)}
-            saveLabel="Add Member"
-          />
-        )}
-      </div>
-    </section>
+          {showAddForm && (
+            <MemberForm
+              onSave={handleAdd}
+              onCancel={() => setShowAddForm(false)}
+              saveLabel="Add Member"
+            />
+          )}
+        </div>
+      </section>
+
+      <InviteSection />
+    </>
   );
 }
