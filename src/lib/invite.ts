@@ -6,6 +6,7 @@ import {
   query,
   where,
   runTransaction,
+  updateDoc,
   serverTimestamp,
   arrayUnion,
 } from "firebase/firestore";
@@ -35,27 +36,29 @@ export async function acceptInvite(
   projectId: string,
   uid: string
 ): Promise<void> {
-  await runTransaction(getFirebaseDb(), async (transaction) => {
-    const inviteRef = doc(getFirebaseDb(),"invites", inviteId);
-    const projectRef = doc(getFirebaseDb(),"projects", projectId);
+  const db = getFirebaseDb();
+  const inviteRef = doc(db, "invites", inviteId);
 
-    const inviteSnap = await transaction.get(inviteRef);
-    if (!inviteSnap.exists()) throw new Error("Invite not found");
+  // Step 1: Mark invite as accepted.
+  // This is a standalone write so the security rule can verify the invite
+  // status update independently.
+  await updateDoc(inviteRef, { status: "accepted" });
+
+  // Step 2: Add user to project + update user doc.
+  // The project update rule uses get() to read the invite — now it sees
+  // status == 'accepted' because step 1 already committed.
+  await runTransaction(db, async (transaction) => {
+    const projectRef = doc(db, "projects", projectId);
 
     const projectSnap = await transaction.get(projectRef);
     if (!projectSnap.exists()) throw new Error("Project not found");
 
-    // Update invite status
-    transaction.update(inviteRef, { status: "accepted" });
-
-    // Add user to project memberIds
     transaction.update(projectRef, {
       memberIds: arrayUnion(uid),
       updatedAt: serverTimestamp(),
     });
 
-    // Update user's projectId
-    transaction.update(doc(getFirebaseDb(),"users", uid), {
+    transaction.update(doc(db, "users", uid), {
       projectId,
     });
   });

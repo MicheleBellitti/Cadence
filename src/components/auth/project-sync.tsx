@@ -16,7 +16,7 @@ export function ProjectSync({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const initSync = useProjectStore((s) => s.initializeSync);
   const loading = useProjectStore((s) => s.loading);
-  const items = useProjectStore((s) => s.project.items);
+  const project = useProjectStore((s) => s.project);
   const projectId = user?.projectId;
   const uid = user?.uid;
 
@@ -42,8 +42,15 @@ export function ProjectSync({ children }: { children: React.ReactNode }) {
     if (checkedRef.current) return;
     checkedRef.current = true;
 
-    // Only prompt if Firestore project is empty
-    if (items.length > 0) {
+    // Only prompt if Firestore project is truly empty across all collections.
+    // Checking only items would miss projects with team/sprints/overrides already set up.
+    const hasData =
+      project.items.length > 0 ||
+      project.team.length > 0 ||
+      project.sprints.length > 0 ||
+      project.overrides.length > 0;
+
+    if (hasData) {
       clearLocalStorageProject();
       setMigrationState("done");
       return;
@@ -58,7 +65,7 @@ export function ProjectSync({ children }: { children: React.ReactNode }) {
       setMigrationState("done");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, items.length]);
+  }, [loading, project.items.length, project.team.length, project.sprints.length, project.overrides.length]);
 
   async function handleImport() {
     if (!localProject || !projectId) return;
