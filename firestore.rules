@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the caller is a member of a project
+    function isMember(projectId) {
+      return request.auth != null &&
+        request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.memberIds;
+    }
+
+    // users/{uid} — only the authenticated user can read/write their own doc
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // projects/{projectId}
+    match /projects/{projectId} {
+      // Members can read
+      allow read: if isMember(projectId);
+
+      // Create: caller must be authenticated; ownerId must equal caller's uid;
+      // memberIds must contain exactly the caller's uid
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid];
+
+      // Update: members can update, but memberIds and ownerId must not change
+      // (except via the invite-acceptance rule below for memberIds)
+      allow update: if isMember(projectId)
+        && request.resource.data.memberIds == resource.data.memberIds
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      // Delete: only the owner can delete the project
+      allow delete: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+
+      // Special invite acceptance: invitee can add themselves to memberIds
+      // Conditions:
+      //   - caller is authenticated
+      //   - only memberIds changes (all other fields stay the same)
+      //   - the new memberIds is exactly the old memberIds plus the caller's uid
+      //   - there exists an accepted invite for this project and caller's email
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'updatedAt'])
+        && request.resource.data.memberIds == resource.data.memberIds.concat([request.auth.uid])
+        && exists(/databases/$(database)/documents/invites/$(projectId + '_' + request.auth.token.email))
+        && get(/databases/$(database)/documents/invites/$(projectId + '_' + request.auth.token.email)).data.status == 'accepted';
+
+      // Sub-collections: items, team, sprints, overrides — members can CRUD
+      match /items/{itemId} {
+        allow read, write: if isMember(projectId);
+      }
+
+      match /team/{memberId} {
+        allow read, write: if isMember(projectId);
+      }
+
+      match /sprints/{sprintId} {
+        allow read, write: if isMember(projectId);
+      }
+
+      match /overrides/{overrideId} {
+        allow read, write: if isMember(projectId);
+      }
+    }
+
+    // invites/{inviteId}
+    match /invites/{inviteId} {
+      // Members of the associated project can create invites
+      allow create: if request.auth != null
+        && isMember(request.resource.data.projectId);
+
+      // The invitee (matched by email) can read their invite
+      allow read: if request.auth != null
+        && request.auth.token.email == resource.data.email;
+
+      // Project members can list invites for their project
+      allow read: if request.auth != null
+        && isMember(resource.data.projectId);
+
+      // The invitee can update the invite status to 'accepted' only
+      allow update: if request.auth != null
+        && request.auth.token.email == resource.data.email
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+  }
+}

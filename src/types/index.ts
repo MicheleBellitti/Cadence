@@ -33,6 +33,7 @@ export interface BaseItem {
   order: number;
   createdAt: string;
   updatedAt: string;
+  updatedBy?: string; // Firebase UID of last editor
 }
 
 export interface Epic extends BaseItem {
@@ -64,6 +65,7 @@ export interface TeamMember {
   color: string;
   role: string;
   hoursPerDay: number;
+  linkedUserId?: string | null; // Firebase UID linked to this team member
 }
 
 export interface GanttOverride {
@@ -82,6 +84,8 @@ export interface Project {
   activeSprint: string | null;
   createdAt: string;
   updatedAt: string;
+  ownerId?: string;       // Firebase UID of project creator
+  memberIds?: string[];   // Firebase UIDs of all project members
 }
 
 export interface ScheduledItem {
@@ -94,6 +98,22 @@ export interface ScheduledItem {
   lateFinish: string;
   slack: number;
   isCritical: boolean;
+}
+
+export interface FirebaseUser {
+  uid: string;
+  email: string;
+  displayName: string | null;
+  projectId: string | null;
+}
+
+export interface Invite {
+  id: string;
+  email: string;
+  projectId: string;
+  invitedBy: string;
+  status: "pending" | "accepted";
+  createdAt: string;
 }
 
 export const STATUSES: Status[] = ["todo", "in_progress", "in_review", "done"];
