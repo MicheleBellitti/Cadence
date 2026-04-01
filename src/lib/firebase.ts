@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import {
+  getFirestore,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
@@ -39,26 +40,27 @@ export function getFirebaseAuth(): Auth {
 
 export function getFirebaseDb(): Firestore {
   if (!_db) {
-    _db = initializeFirestore(getFirebaseApp(), {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
-      }),
-    });
+    try {
+      // initializeFirestore can only be called ONCE per app. On HMR the
+      // module-level _db resets to null while the app singleton survives.
+      _db = initializeFirestore(getFirebaseApp(), {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      });
+    } catch {
+      // Already initialized (HMR reload) — fall back to the existing instance.
+      _db = getFirestore(getFirebaseApp());
+    }
   }
   return _db;
 }
 
-// Re-export as getters for backward compatibility.
-// These will throw during SSR if accessed, but "use client" components
-// only call them in the browser (useEffect, event handlers, etc.).
+// Auth proxy works because SDK functions only access properties on it.
+// db proxy does NOT work — doc(db, ...) does instanceof checks internally.
+// So: auth = Proxy (convenient), db = use getFirebaseDb() directly.
 export const auth = new Proxy({} as Auth, {
   get(_, prop) {
     return Reflect.get(getFirebaseAuth(), prop);
-  },
-});
-
-export const db = new Proxy({} as Firestore, {
-  get(_, prop) {
-    return Reflect.get(getFirebaseDb(), prop);
   },
 });

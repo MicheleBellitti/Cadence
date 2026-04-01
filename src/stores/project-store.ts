@@ -8,7 +8,8 @@ import type {
   Sprint,
 } from "@/types";
 import type { Unsubscribe } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
+import { showErrorToast } from "@/stores/toast-store";
 import {
   subscribeToProject,
   firestoreUpdateProject,
@@ -118,6 +119,14 @@ interface ProjectState {
   assignToSprint: (itemId: string, sprintId: string | null) => void;
 }
 
+/** Log to console AND show a user-facing toast for failed Firestore writes. */
+function handleWriteError(action: string) {
+  return (err: unknown) => {
+    console.error(`Firestore write failed [${action}]:`, err);
+    showErrorToast(`Failed to save: ${action}. Your change may not persist.`);
+  };
+}
+
 export const useProjectStore = create<ProjectState>()((set, get) => ({
   project: emptyProject(),
   projectId: null,
@@ -152,7 +161,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
   initializeSync: (projectId, uid) => {
     set({ projectId, uid, loading: true });
-    const unsubscribes = subscribeToProject(db, projectId, {
+    const unsubscribes = subscribeToProject(getFirebaseDb(), projectId, {
       onProjectUpdate: (data) =>
         set((state) => ({ project: { ...state.project, ...data } })),
       onItemsUpdate: (items) =>
@@ -163,7 +172,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
         set((state) => ({ project: { ...state.project, sprints } })),
       onOverridesUpdate: (overrides) =>
         set((state) => ({ project: { ...state.project, overrides } })),
-      onError: (error) => console.error("Firestore sync error:", error),
+      onError: (error) => {
+        console.error("Firestore sync error:", error);
+        showErrorToast("Sync error — some data may be out of date.");
+      },
       onSyncStateChange: (loading, syncing) => set({ loading, syncing }),
     });
     return unsubscribes;
@@ -206,7 +218,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const { project } = get();
       const addedItem = project.items.find((i) => i.id === id);
       if (addedItem) {
-        firestoreAddItem(db, projectId, addedItem, get().uid).catch(console.error);
+        firestoreAddItem(getFirebaseDb(), projectId, addedItem, get().uid).catch(handleWriteError("add item"));
       }
     }
     return id;
@@ -231,8 +243,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreUpdateItem(db, projectId, id, updates, get().uid).catch(
-        console.error
+      firestoreUpdateItem(getFirebaseDb(), projectId, id, updates, get().uid).catch(
+        handleWriteError("update item")
       );
     }
   },
@@ -281,8 +293,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreDeleteItem(db, projectId, id, allItems, allOverrides).catch(
-        console.error
+      firestoreDeleteItem(getFirebaseDb(), projectId, id, allItems, allOverrides).catch(
+        handleWriteError("delete item")
       );
     }
   },
@@ -306,7 +318,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreMoveItem(db, projectId, id, status, get().uid).catch(console.error);
+      firestoreMoveItem(getFirebaseDb(), projectId, id, status, get().uid).catch(handleWriteError("move item"));
     }
   },
 
@@ -329,8 +341,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreReorderItem(db, projectId, id, newOrder, get().uid).catch(
-        console.error
+      firestoreReorderItem(getFirebaseDb(), projectId, id, newOrder, get().uid).catch(
+        handleWriteError("reorder item")
       );
     }
   },
@@ -365,13 +377,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     // 2. Fire-and-forget Firestore write
     if (projectId) {
       firestoreAddDependency(
-        db,
+        getFirebaseDb(),
         projectId,
         itemId,
         currentDeps,
         dependsOnId,
         get().uid
-      ).catch(console.error);
+      ).catch(handleWriteError("add dependency"));
     }
   },
 
@@ -405,13 +417,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     // 2. Fire-and-forget Firestore write
     if (projectId) {
       firestoreRemoveDependency(
-        db,
+        getFirebaseDb(),
         projectId,
         itemId,
         currentDeps,
         dependsOnId,
         get().uid
-      ).catch(console.error);
+      ).catch(handleWriteError("remove dependency"));
     }
   },
 
@@ -433,7 +445,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreAddTeamMember(db, projectId, { ...member, id }).catch(console.error);
+      firestoreAddTeamMember(getFirebaseDb(), projectId, { ...member, id }).catch(handleWriteError("add team member"));
     }
     return id;
   },
@@ -455,8 +467,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreUpdateTeamMember(db, projectId, id, updates).catch(
-        console.error
+      firestoreUpdateTeamMember(getFirebaseDb(), projectId, id, updates).catch(
+        handleWriteError("update team member")
       );
     }
   },
@@ -486,8 +498,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreRemoveTeamMember(db, projectId, id, allItems).catch(
-        console.error
+      firestoreRemoveTeamMember(getFirebaseDb(), projectId, id, allItems).catch(
+        handleWriteError("remove team member")
       );
     }
   },
@@ -515,8 +527,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreSetOverride(db, projectId, itemId, startDate).catch(
-        console.error
+      firestoreSetOverride(getFirebaseDb(), projectId, itemId, startDate).catch(
+        handleWriteError("set override")
       );
     }
   },
@@ -538,7 +550,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreRemoveOverride(db, projectId, itemId).catch(console.error);
+      firestoreRemoveOverride(getFirebaseDb(), projectId, itemId).catch(handleWriteError("remove override"));
     }
   },
 
@@ -559,7 +571,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreUpdateProject(db, projectId, updates).catch(console.error);
+      firestoreUpdateProject(getFirebaseDb(), projectId, updates).catch(handleWriteError("update project"));
     }
   },
 
@@ -599,7 +611,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreAddSprint(db, projectId, sprint).catch(console.error);
+      firestoreAddSprint(getFirebaseDb(), projectId, sprint).catch(handleWriteError("add sprint"));
     }
     return id;
   },
@@ -621,7 +633,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreUpdateSprint(db, projectId, id, updates).catch(console.error);
+      firestoreUpdateSprint(getFirebaseDb(), projectId, id, updates).catch(handleWriteError("update sprint"));
     }
   },
 
@@ -654,8 +666,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId && sprint && sprint.status === "planning") {
-      firestoreDeleteSprint(db, projectId, id, allItems).catch(
-        console.error
+      firestoreDeleteSprint(getFirebaseDb(), projectId, id, allItems).catch(
+        handleWriteError("delete sprint")
       );
     }
   },
@@ -703,12 +715,12 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       const endDateObj = new Date(timestamp);
       endDateObj.setDate(endDateObj.getDate() + durationDays);
       firestoreStartSprint(
-        db,
+        getFirebaseDb(),
         projectId,
         id,
         timestamp,
         endDateObj.toISOString()
-      ).catch(console.error);
+      ).catch(handleWriteError("start sprint"));
     }
   },
 
@@ -762,13 +774,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     // 2. Fire-and-forget Firestore write
     if (projectId) {
       firestoreCompleteSprint(
-        db,
+        getFirebaseDb(),
         projectId,
         id,
         allItems,
         moveIncomplete,
         allSprints
-      ).catch(console.error);
+      ).catch(handleWriteError("complete sprint"));
     }
   },
 
@@ -793,8 +805,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      firestoreAssignToSprint(db, projectId, itemId, sprintId, get().uid).catch(
-        console.error
+      firestoreAssignToSprint(getFirebaseDb(), projectId, itemId, sprintId, get().uid).catch(
+        handleWriteError("assign to sprint")
       );
     }
   },

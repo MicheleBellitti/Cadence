@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { AuthGate } from "@/components/auth/auth-gate";
 import { AppShell } from "@/components/layout/app-shell";
 import { ProjectSync } from "@/components/auth/project-sync";
+import { ToastContainer } from "@/components/ui/toast-container";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -33,6 +34,7 @@ export default function RootLayout({
               </ProjectSync>
             </AuthGate>
           </AuthProvider>
+          <ToastContainer />
         </ThemeProvider>
       </body>
     </html>

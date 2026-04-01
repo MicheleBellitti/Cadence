@@ -1,5 +1,5 @@
 import { writeBatch, doc, serverTimestamp } from "firebase/firestore";
-import { db } from "./firebase";
+import { getFirebaseDb } from "./firebase";
 import { firestoreUpdateProject } from "./firestore-sync";
 import { projectSchema } from "./validators";
 import type { Project } from "@/types";
@@ -97,19 +97,19 @@ export async function migrateToFirestore(project: Project, projectId: string): P
   // Flush in chunks of BATCH_LIMIT
   for (let i = 0; i < setOps.length; i += BATCH_LIMIT) {
     const chunk = setOps.slice(i, i + BATCH_LIMIT);
-    const batch = writeBatch(db);
+    const batch = writeBatch(getFirebaseDb());
     for (const op of chunk) {
       const [col, colId, subCol, subId] = op.path;
       const ref = subCol
-        ? doc(db, col, colId, subCol, subId)
-        : doc(db, col, colId);
+        ? doc(getFirebaseDb(),col, colId, subCol, subId)
+        : doc(getFirebaseDb(),col, colId);
       batch.set(ref, op.data);
     }
     await batch.commit();
   }
 
   // Update project metadata
-  await firestoreUpdateProject(db, projectId, {
+  await firestoreUpdateProject(getFirebaseDb(), projectId, {
     name: project.name,
     deadline: project.deadline,
   });

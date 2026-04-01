@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { writeBatch, doc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { useProjectStore, useProjectId } from "@/stores/project-store";
 import { useAuth } from "@/components/auth/auth-provider";
 import { firestoreUpdateProject } from "@/lib/firestore-sync";
@@ -43,7 +43,7 @@ export function DataManager() {
       setLoading(true);
       try {
         await deleteAllProjectData(projectId, project);
-        await firestoreUpdateProject(db, projectId, { name: "My Project", deadline: null });
+        await firestoreUpdateProject(getFirebaseDb(), projectId, { name: "My Project", deadline: null });
         setConfirmReset(false);
       } catch (err) {
         console.error("Failed to reset project:", err);
@@ -206,17 +206,17 @@ const BATCH_LIMIT = 499;
  * Uses multiple batches if needed to stay within the 500-op Firestore limit.
  */
 async function deleteAllProjectData(projectId: string, project: Project): Promise<void> {
-  let batch = writeBatch(db);
+  let batch = writeBatch(getFirebaseDb());
   let count = 0;
   const batches: ReturnType<typeof writeBatch>[] = [batch];
 
   function addDelete(col: string, id: string) {
     if (count >= BATCH_LIMIT) {
-      batch = writeBatch(db);
+      batch = writeBatch(getFirebaseDb());
       batches.push(batch);
       count = 0;
     }
-    batch.delete(doc(db, "projects", projectId, col, id));
+    batch.delete(doc(getFirebaseDb(),"projects", projectId, col, id));
     count++;
   }
 
@@ -237,17 +237,17 @@ async function writeProjectDataToFirestore(
   project: Project,
   uid: string,
 ): Promise<void> {
-  let batch = writeBatch(db);
+  let batch = writeBatch(getFirebaseDb());
   let count = 0;
   const batches: ReturnType<typeof writeBatch>[] = [batch];
 
   function addSet(col: string, id: string, data: Record<string, unknown>) {
     if (count >= BATCH_LIMIT) {
-      batch = writeBatch(db);
+      batch = writeBatch(getFirebaseDb());
       batches.push(batch);
       count = 0;
     }
-    batch.set(doc(db, "projects", projectId, col, id), data);
+    batch.set(doc(getFirebaseDb(),"projects", projectId, col, id), data);
     count++;
   }
 
@@ -286,7 +286,7 @@ async function writeProjectDataToFirestore(
   await Promise.all(batches.map((b) => b.commit()));
 
   // Update project metadata
-  await firestoreUpdateProject(db, projectId, {
+  await firestoreUpdateProject(getFirebaseDb(), projectId, {
     name: project.name,
     deadline: project.deadline,
   });

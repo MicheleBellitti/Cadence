@@ -9,7 +9,7 @@ import {
   serverTimestamp,
   arrayUnion,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { getFirebaseDb } from "./firebase";
 import { normalizeEmailForDocId } from "./firestore-sync";
 import type { Invite } from "@/types";
 
@@ -21,7 +21,7 @@ export async function createInvite(
   const normalizedEmail = email.toLowerCase();
   const inviteId = `${projectId}_${normalizeEmailForDocId(normalizedEmail)}`;
 
-  await setDoc(doc(db, "invites", inviteId), {
+  await setDoc(doc(getFirebaseDb(),"invites", inviteId), {
     email: normalizedEmail,
     projectId,
     invitedBy: invitedByUid,
@@ -35,9 +35,9 @@ export async function acceptInvite(
   projectId: string,
   uid: string
 ): Promise<void> {
-  await runTransaction(db, async (transaction) => {
-    const inviteRef = doc(db, "invites", inviteId);
-    const projectRef = doc(db, "projects", projectId);
+  await runTransaction(getFirebaseDb(), async (transaction) => {
+    const inviteRef = doc(getFirebaseDb(),"invites", inviteId);
+    const projectRef = doc(getFirebaseDb(),"projects", projectId);
 
     const inviteSnap = await transaction.get(inviteRef);
     if (!inviteSnap.exists()) throw new Error("Invite not found");
@@ -55,7 +55,7 @@ export async function acceptInvite(
     });
 
     // Update user's projectId
-    transaction.update(doc(db, "users", uid), {
+    transaction.update(doc(getFirebaseDb(),"users", uid), {
       projectId,
     });
   });
@@ -63,7 +63,7 @@ export async function acceptInvite(
 
 export async function getPendingInvites(email: string): Promise<Invite[]> {
   const q = query(
-    collection(db, "invites"),
+    collection(getFirebaseDb(), "invites"),
     where("email", "==", email.toLowerCase()),
     where("status", "==", "pending")
   );
@@ -75,7 +75,7 @@ export async function getPendingInvitesForProject(
   projectId: string
 ): Promise<Invite[]> {
   const q = query(
-    collection(db, "invites"),
+    collection(getFirebaseDb(), "invites"),
     where("projectId", "==", projectId),
     where("status", "==", "pending")
   );

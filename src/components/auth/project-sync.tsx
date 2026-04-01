@@ -18,17 +18,20 @@ export function ProjectSync({ children }: { children: React.ReactNode }) {
   const loading = useProjectStore((s) => s.loading);
   const items = useProjectStore((s) => s.project.items);
   const projectId = user?.projectId;
+  const uid = user?.uid;
 
   const [migrationState, setMigrationState] = useState<MigrationState>("idle");
   const [localProject, setLocalProject] = useState<Project | null>(null);
   const [migrationError, setMigrationError] = useState<string | null>(null);
   const checkedRef = useRef(false);
 
+  // Depend on primitive strings (projectId, uid) — NOT the `user` object,
+  // which is a new reference on every setUser call and would cause re-subscribes.
   useEffect(() => {
-    if (!projectId || !user) return;
-    const unsubscribes = initSync(projectId, user.uid);
+    if (!projectId || !uid) return;
+    const unsubscribes = initSync(projectId, uid);
     return () => unsubscribes.forEach((unsub) => unsub());
-  }, [projectId, user, initSync]);
+  }, [projectId, uid, initSync]);
 
   // After Firestore finishes loading, check for localStorage data to migrate.
   // We use startTransition-style batching: both state updates happen in the same

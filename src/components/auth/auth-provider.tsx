@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react"; // useCallback kept for signIn/signUp/signOut
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -9,7 +9,7 @@ import {
   type User,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { auth, getFirebaseDb } from "@/lib/firebase";
 import { firestoreCreateProject } from "@/lib/firestore-sync";
 import { getPendingInvites, acceptInvite } from "@/lib/invite";
 import type { FirebaseUser, Invite } from "@/types";
@@ -40,7 +40,7 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY = 500;
 
 async function fetchOrCreateUserDoc(fbUser: User, retries = 0): Promise<FirebaseUser | null> {
-  const userRef = doc(db, "users", fbUser.uid);
+  const userRef = doc(getFirebaseDb(), "users", fbUser.uid);
   const snap = await getDoc(userRef);
 
   if (snap.exists()) {
@@ -75,6 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
+  // When true, signIn/signUp is actively running — skip onAuthStateChanged processing
+  // to prevent the listener from racing with the explicit state updates.
+  const authActionInProgress = useRef(false);
 
   // Fetch pending invites for a user with no project
   async function fetchPendingInvitesForUser(userData: FirebaseUser): Promise<void> {
@@ -94,19 +97,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let unsubscribe: (() => void) | undefined;
     try {
       unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-        if (fbUser) {
-          setFirebaseUser(fbUser);
-          const userData = await fetchOrCreateUserDoc(fbUser);
-          setUser(userData);
-          if (userData) {
-            await fetchPendingInvitesForUser(userData);
+        // Skip if signIn/signUp is actively handling state — avoids race conditions
+        // where this listener overwrites the explicit setUser call.
+        if (authActionInProgress.current) return;
+        try {
+          if (fbUser) {
+            setFirebaseUser(fbUser);
+            const userData = await fetchOrCreateUserDoc(fbUser);
+            setUser(userData);
+            if (userData) {
+              await fetchPendingInvitesForUser(userData);
+            }
+          } else {
+            setFirebaseUser(null);
+            setUser(undefined); // explicitly unauthenticated
+            setPendingInvites([]);
           }
-        } else {
-          setFirebaseUser(null);
-          setUser(undefined); // explicitly unauthenticated
-          setPendingInvites([]);
+        } catch (err) {
+          console.error("Auth state handler error:", err);
+          // Still let the user through — Auth succeeded even if Firestore read failed
+          if (fbUser) {
+            setUser({
+              uid: fbUser.uid,
+              email: fbUser.email ?? "",
+              displayName: fbUser.displayName ?? "",
+              projectId: null,
+            });
+          } else {
+            setUser(undefined);
+          }
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       });
     } catch {
       // Firebase not configured (missing API key, etc.) — treat as unauthenticated
@@ -129,21 +151,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    authActionInProgress.current = true;
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      setFirebaseUser(cred.user);
+      const userData = await fetchOrCreateUserDoc(cred.user);
+      setUser(userData);
+      if (userData) {
+        await fetchPendingInvitesForUser(userData);
+      }
+    } finally {
+      authActionInProgress.current = false;
+    }
   }, []);
 
   const signUp = useCallback(async (email: string, password: string, displayName: string) => {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    const newUser: FirebaseUser = {
-      uid: cred.user.uid,
-      email: email.toLowerCase(),
-      displayName,
-      projectId: null,
-    };
-    await setDoc(doc(db, "users", cred.user.uid), newUser);
-    setUser(newUser);
-    setFirebaseUser(cred.user);
-    await fetchPendingInvitesForUser(newUser);
+    authActionInProgress.current = true;
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser: FirebaseUser = {
+        uid: cred.user.uid,
+        email: email.toLowerCase(),
+        displayName,
+        projectId: null,
+      };
+      await setDoc(doc(getFirebaseDb(), "users", cred.user.uid), newUser);
+      setUser(newUser);
+      setFirebaseUser(cred.user);
+      await fetchPendingInvitesForUser(newUser);
+    } finally {
+      authActionInProgress.current = false;
+    }
   }, []);
 
   const signOutFn = useCallback(async () => {
@@ -167,9 +205,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fbUser = auth.currentUser;
     if (!fbUser) throw new Error("Not authenticated");
     const projectId = crypto.randomUUID();
-    await firestoreCreateProject(db, projectId, name, fbUser.uid);
+    await firestoreCreateProject(getFirebaseDb(), projectId, name, fbUser.uid);
     // Update user doc with the new projectId
-    await updateDoc(doc(db, "users", fbUser.uid), { projectId });
+    await updateDoc(doc(getFirebaseDb(), "users", fbUser.uid), { projectId });
     // Refresh user state
     await refreshUser();
     return projectId;

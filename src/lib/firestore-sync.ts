@@ -14,6 +14,36 @@ import {
 } from "firebase/firestore";
 import type { Item, TeamMember, Sprint, GanttOverride, Invite } from "@/types";
 
+const BATCH_LIMIT = 499;
+
+/** Operations collected for a chunked batch commit. */
+interface BatchOp {
+  type: "set" | "update" | "delete";
+  ref: ReturnType<typeof doc>;
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Commit an array of batch operations in chunks of BATCH_LIMIT.
+ * Firestore limits each writeBatch to 500 operations.
+ */
+async function commitChunked(db: Firestore, ops: BatchOp[]): Promise<void> {
+  for (let i = 0; i < ops.length; i += BATCH_LIMIT) {
+    const chunk = ops.slice(i, i + BATCH_LIMIT);
+    const batch = writeBatch(db);
+    for (const op of chunk) {
+      if (op.type === "delete") {
+        batch.delete(op.ref);
+      } else if (op.type === "set") {
+        batch.set(op.ref, op.data!);
+      } else {
+        batch.update(op.ref, op.data!);
+      }
+    }
+    await batch.commit();
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -104,6 +134,7 @@ export function docToOverride(data: DocumentData, id: string): GanttOverride {
 export function collectDescendantIds(rootId: string, allItems: Pick<Item, "id" | "parentId">[]): Set<string> {
   const toDelete = new Set<string>();
   const collect = (parentId: string) => {
+    if (toDelete.has(parentId)) return; // cycle protection
     toDelete.add(parentId);
     allItems.forEach((item) => {
       if (item.parentId === parentId) collect(item.id);
@@ -322,17 +353,17 @@ export async function firestoreDeleteItem(
   allOverrides: GanttOverride[],
 ): Promise<void> {
   const toDelete = collectDescendantIds(itemId, allItems);
-  const batch = writeBatch(db);
+  const ops: BatchOp[] = [];
 
   // Delete item docs
   for (const id of toDelete) {
-    batch.delete(doc(db, "projects", projectId, "items", id));
+    ops.push({ type: "delete", ref: doc(db, "projects", projectId, "items", id) });
   }
 
   // Delete matching override docs
   for (const override of allOverrides) {
     if (toDelete.has(override.itemId)) {
-      batch.delete(doc(db, "projects", projectId, "overrides", override.itemId));
+      ops.push({ type: "delete", ref: doc(db, "projects", projectId, "overrides", override.itemId) });
     }
   }
 
@@ -341,14 +372,15 @@ export async function firestoreDeleteItem(
     if (toDelete.has(item.id)) continue;
     const filtered = item.dependencies.filter((depId) => !toDelete.has(depId));
     if (filtered.length !== item.dependencies.length) {
-      batch.update(doc(db, "projects", projectId, "items", item.id), {
-        dependencies: filtered,
-        updatedAt: serverTimestamp(),
+      ops.push({
+        type: "update",
+        ref: doc(db, "projects", projectId, "items", item.id),
+        data: { dependencies: filtered, updatedAt: serverTimestamp() },
       });
     }
   }
 
-  await batch.commit();
+  await commitChunked(db, ops);
 }
 
 /**
@@ -468,22 +500,26 @@ export async function firestoreRemoveTeamMember(
   memberId: string,
   allItems: Item[],
 ): Promise<void> {
-  const batch = writeBatch(db);
+  const ops: BatchOp[] = [];
 
   // Delete the team member doc
-  batch.delete(doc(db, "projects", projectId, "team", memberId));
+  ops.push({ type: "delete", ref: doc(db, "projects", projectId, "team", memberId) });
 
   // Update items that reference this member in assigneeIds
   for (const item of allItems) {
     if (item.assigneeIds.includes(memberId)) {
-      batch.update(doc(db, "projects", projectId, "items", item.id), {
-        assigneeIds: item.assigneeIds.filter((id) => id !== memberId),
-        updatedAt: serverTimestamp(),
+      ops.push({
+        type: "update",
+        ref: doc(db, "projects", projectId, "items", item.id),
+        data: {
+          assigneeIds: item.assigneeIds.filter((id) => id !== memberId),
+          updatedAt: serverTimestamp(),
+        },
       });
     }
   }
 
-  await batch.commit();
+  await commitChunked(db, ops);
 }
 
 // ─── Sprint CRUD ─────────────────────────────────────────────────────────────
@@ -528,22 +564,23 @@ export async function firestoreDeleteSprint(
   sprintId: string,
   allItems: Item[],
 ): Promise<void> {
-  const batch = writeBatch(db);
+  const ops: BatchOp[] = [];
 
   // Delete the sprint doc
-  batch.delete(doc(db, "projects", projectId, "sprints", sprintId));
+  ops.push({ type: "delete", ref: doc(db, "projects", projectId, "sprints", sprintId) });
 
   // Set sprintId to null on items in this sprint
   for (const item of allItems) {
     if (item.sprintId === sprintId) {
-      batch.update(doc(db, "projects", projectId, "items", item.id), {
-        sprintId: null,
-        updatedAt: serverTimestamp(),
+      ops.push({
+        type: "update",
+        ref: doc(db, "projects", projectId, "items", item.id),
+        data: { sprintId: null, updatedAt: serverTimestamp() },
       });
     }
   }
 
-  await batch.commit();
+  await commitChunked(db, ops);
 }
 
 export async function firestoreStartSprint(
@@ -580,18 +617,20 @@ export async function firestoreCompleteSprint(
   moveIncomplete: "next" | "backlog",
   allSprints: Sprint[],
 ): Promise<void> {
-  const batch = writeBatch(db);
+  const ops: BatchOp[] = [];
 
   // Mark sprint as completed
-  batch.update(doc(db, "projects", projectId, "sprints", sprintId), {
-    status: "completed",
-    updatedAt: serverTimestamp(),
+  ops.push({
+    type: "update",
+    ref: doc(db, "projects", projectId, "sprints", sprintId),
+    data: { status: "completed", updatedAt: serverTimestamp() },
   });
 
   // Clear project's activeSprint
-  batch.update(doc(db, "projects", projectId), {
-    activeSprint: null,
-    updatedAt: serverTimestamp(),
+  ops.push({
+    type: "update",
+    ref: doc(db, "projects", projectId),
+    data: { activeSprint: null, updatedAt: serverTimestamp() },
   });
 
   // Find incomplete items in this sprint
@@ -600,7 +639,6 @@ export async function firestoreCompleteSprint(
   );
 
   if (incompleteItems.length > 0) {
-    // Find the next planning sprint if moving to next
     let targetSprintId: string | null = null;
     if (moveIncomplete === "next") {
       const nextSprint = allSprints.find((s) => s.status === "planning");
@@ -608,14 +646,15 @@ export async function firestoreCompleteSprint(
     }
 
     for (const item of incompleteItems) {
-      batch.update(doc(db, "projects", projectId, "items", item.id), {
-        sprintId: targetSprintId,
-        updatedAt: serverTimestamp(),
+      ops.push({
+        type: "update",
+        ref: doc(db, "projects", projectId, "items", item.id),
+        data: { sprintId: targetSprintId, updatedAt: serverTimestamp() },
       });
     }
   }
 
-  await batch.commit();
+  await commitChunked(db, ops);
 }
 
 // ─── Overrides ───────────────────────────────────────────────────────────────

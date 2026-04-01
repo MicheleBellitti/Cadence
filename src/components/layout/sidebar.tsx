@@ -9,8 +9,10 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeft,
+  LogOut,
 } from "lucide-react";
 import { useUIStore } from "@/stores/ui-store";
+import { useAuth } from "@/components/auth/auth-provider";
 import { motion } from "framer-motion";
 
 const navItems = [
@@ -27,6 +29,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const { user, signOut } = useAuth();
 
   return (
     <motion.aside
@@ -125,6 +128,65 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* User footer */}
+      {user && (
+        <div
+          className="shrink-0 px-2 py-3 flex items-center gap-2"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          {/* Avatar circle */}
+          <div
+            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full text-xs font-semibold"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--accent) 15%, transparent)",
+              color: "var(--accent)",
+            }}
+            title={user.email}
+          >
+            {(user.displayName || user.email || "?").charAt(0).toUpperCase()}
+          </div>
+
+          {!sidebarCollapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.15 }}
+              className="flex-1 min-w-0"
+            >
+              <p
+                className="text-sm font-medium truncate leading-tight"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {user.displayName || "User"}
+              </p>
+              <p
+                className="text-xs truncate leading-tight"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                {user.email}
+              </p>
+            </motion.div>
+          )}
+
+          <button
+            onClick={signOut}
+            title="Sign out"
+            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+            style={{ color: "var(--text-secondary)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--bg-elevated)";
+              e.currentTarget.style.color = "var(--danger)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = "var(--text-secondary)";
+            }}
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
+      )}
     </motion.aside>
   );
 }

@@ -6,7 +6,8 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-function getErrorMessage(code: string): string {
+function getErrorMessage(err: unknown): string {
+  const code = (err as { code?: string }).code ?? "";
   switch (code) {
     case "auth/invalid-credential":
     case "auth/wrong-password":
@@ -18,8 +19,10 @@ function getErrorMessage(code: string): string {
       return "This account has been disabled.";
     case "auth/too-many-requests":
       return "Too many failed attempts. Please try again later.";
-    default:
-      return "Sign in failed. Please try again.";
+    default: {
+      const msg = err instanceof Error ? err.message : String(err);
+      return `Sign in failed: ${msg}`;
+    }
   }
 }
 
@@ -38,8 +41,7 @@ export default function LoginPage() {
       await signIn(email, password);
       // AuthGate handles redirect on successful auth
     } catch (err: unknown) {
-      const code = (err as { code?: string }).code ?? "";
-      setError(getErrorMessage(code));
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

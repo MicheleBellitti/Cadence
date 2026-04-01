@@ -6,7 +6,8 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-function getErrorMessage(code: string): string {
+function getErrorMessage(err: unknown): string {
+  const code = (err as { code?: string }).code ?? "";
   switch (code) {
     case "auth/email-already-in-use":
       return "An account with this email already exists.";
@@ -16,8 +17,14 @@ function getErrorMessage(code: string): string {
       return "Password must be at least 6 characters.";
     case "auth/too-many-requests":
       return "Too many attempts. Please try again later.";
-    default:
-      return "Account creation failed. Please try again.";
+    case "permission-denied":
+    case "PERMISSION_DENIED":
+      return "Firestore security rules blocked the write. Deploy your firestore.rules first.";
+    default: {
+      // Surface the real error during development
+      const msg = err instanceof Error ? err.message : String(err);
+      return `Account creation failed: ${msg}`;
+    }
   }
 }
 
@@ -52,8 +59,7 @@ export default function RegisterPage() {
       await signUp(email, password, displayName.trim());
       // AuthGate handles redirect on successful auth
     } catch (err: unknown) {
-      const code = (err as { code?: string }).code ?? "";
-      setError(getErrorMessage(code));
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,5 @@
 import { writeBatch, doc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { firestoreUpdateProject } from "@/lib/firestore-sync";
 import type { Epic, Story, Task, Bug, TeamMember, Sprint } from "@/types";
 
@@ -385,12 +385,12 @@ export async function loadSeedData(projectId: string): Promise<void> {
   const sprints = [sprint1, sprint2];
 
   // Write all seed data in a single batch (well within 500 op limit)
-  const batch = writeBatch(db);
+  const batch = writeBatch(getFirebaseDb());
 
   // Write items
   items.forEach((item) => {
     const { id, ...data } = item;
-    const ref = doc(db, "projects", projectId, "items", id);
+    const ref = doc(getFirebaseDb(),"projects", projectId, "items", id);
     batch.set(ref, {
       ...data,
       createdAt: serverTimestamp(),
@@ -401,14 +401,14 @@ export async function loadSeedData(projectId: string): Promise<void> {
   // Write team members
   team.forEach((member) => {
     const { id, ...data } = member;
-    const ref = doc(db, "projects", projectId, "team", id);
+    const ref = doc(getFirebaseDb(),"projects", projectId, "team", id);
     batch.set(ref, data);
   });
 
   // Write sprints
   sprints.forEach((sprint) => {
     const { id, ...data } = sprint;
-    const ref = doc(db, "projects", projectId, "sprints", id);
+    const ref = doc(getFirebaseDb(),"projects", projectId, "sprints", id);
     batch.set(ref, {
       ...data,
       createdAt: serverTimestamp(),
@@ -419,5 +419,5 @@ export async function loadSeedData(projectId: string): Promise<void> {
   await batch.commit();
 
   // Update project metadata (activeSprint + name)
-  await firestoreUpdateProject(db, projectId, { name: "AI Platform", activeSprint: "sprint-2" });
+  await firestoreUpdateProject(getFirebaseDb(), projectId, { name: "AI Platform", activeSprint: "sprint-2" });
 }
