@@ -5,13 +5,13 @@ import { Sidebar } from "./sidebar";
 import { Navbar } from "./navbar";
 import { MainContent } from "./main-content";
 
-const PUBLIC_ROUTES = ["/login", "/register"];
+const SHELL_BYPASS_ROUTES = ["/login", "/register", "/projects"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublic = PUBLIC_ROUTES.includes(pathname);
+  const bypassShell = SHELL_BYPASS_ROUTES.includes(pathname);
 
-  if (isPublic) {
+  if (bypassShell) {
     return <>{children}</>;
   }
 

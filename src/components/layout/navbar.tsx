@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
+import { NotificationBell } from "./notification-bell";
 import { useUIStore } from "@/stores/ui-store";
 import { useProjectStore } from "@/stores/project-store";
 import { CreateItemModal } from "@/components/items/create-item-modal";
@@ -69,7 +70,7 @@ export function Navbar() {
         )}
       </div>
 
-      {/* Right: create button + theme toggle */}
+      {/* Right: create button + notifications + theme toggle */}
       <div className="flex items-center gap-2 shrink-0">
         <button
           onClick={() => setShowCreate(true)}
@@ -79,6 +80,7 @@ export function Navbar() {
         >
           <Plus size={16} />
         </button>
+        <NotificationBell />
         <ThemeToggle />
       </div>
 

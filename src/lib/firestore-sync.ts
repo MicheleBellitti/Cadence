@@ -1,7 +1,10 @@
 import {
   collection,
   doc,
+  getDocs,
   onSnapshot,
+  query,
+  where,
   writeBatch,
   serverTimestamp,
   setDoc,
@@ -253,6 +256,43 @@ export function subscribeToProject(
   );
 
   return [unsubProject, unsubItems, unsubTeam, unsubSprints, unsubOverrides];
+}
+
+// ─── Project Discovery ───────────────────────────────────────────────────────
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  ownerId: string;
+  memberIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Fetch all projects where the given user is a member.
+ * Uses Firestore's `array-contains` query on `memberIds`.
+ */
+export async function fetchUserProjects(
+  db: Firestore,
+  uid: string,
+): Promise<ProjectSummary[]> {
+  const q = query(
+    collection(db, "projects"),
+    where("memberIds", "array-contains", uid),
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      name: data.name ?? "Untitled",
+      ownerId: data.ownerId ?? "",
+      memberIds: data.memberIds ?? [],
+      createdAt: serializeTimestamp(data.createdAt),
+      updatedAt: serializeTimestamp(data.updatedAt),
+    };
+  });
 }
 
 // ─── Write Operations ────────────────────────────────────────────────────────

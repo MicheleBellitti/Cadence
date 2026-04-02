@@ -15,8 +15,12 @@ service cloud.firestore {
 
     // projects/{projectId}
     match /projects/{projectId} {
-      // Members can read
-      allow read: if isMember(projectId);
+      // Single-doc read: use isMember helper (does a get() on this doc)
+      allow get: if isMember(projectId);
+      // Collection query (e.g. where memberIds array-contains uid):
+      // must use resource.data directly — get() is not allowed in list rules.
+      allow list: if request.auth != null
+        && request.auth.uid in resource.data.memberIds;
 
       // Create: caller must be authenticated; ownerId must equal caller's uid;
       // memberIds must contain exactly the caller's uid

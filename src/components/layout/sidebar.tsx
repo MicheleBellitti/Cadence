@@ -10,10 +10,13 @@ import {
   PanelLeftClose,
   PanelLeft,
   LogOut,
+  FolderOpen,
 } from "lucide-react";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useProjectStore } from "@/stores/project-store";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/board", label: "Board", icon: LayoutDashboard },
@@ -29,7 +32,15 @@ export function Sidebar() {
   const pathname = usePathname();
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
-  const { user, signOut } = useAuth();
+  const { user, signOut, selectProject } = useAuth();
+  const projectName = useProjectStore((s) => s.project.name);
+  const router = useRouter();
+
+  function handleSwitchProject() {
+    selectProject(null);
+    useProjectStore.getState().resetProject();
+    router.push("/projects");
+  }
 
   return (
     <motion.aside
@@ -49,16 +60,20 @@ export function Sidebar() {
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {!sidebarCollapsed && (
-            <motion.span
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
-              className="font-semibold text-sm truncate"
-              style={{ color: "var(--text-primary)" }}
+              className="min-w-0"
             >
-              Cadence
-            </motion.span>
+              <span
+                className="font-semibold text-sm truncate block"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {projectName || "Cadence"}
+              </span>
+            </motion.div>
           )}
         </div>
         <button
@@ -169,6 +184,22 @@ export function Sidebar() {
             </motion.div>
           )}
 
+          <button
+            onClick={handleSwitchProject}
+            title="Switch project"
+            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-md transition-colors"
+            style={{ color: "var(--text-secondary)" }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--bg-elevated)";
+              e.currentTarget.style.color = "var(--text-primary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = "var(--text-secondary)";
+            }}
+          >
+            <FolderOpen size={16} />
+          </button>
           <button
             onClick={signOut}
             title="Sign out"

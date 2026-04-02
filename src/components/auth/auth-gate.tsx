@@ -1,11 +1,11 @@
 "use client";
 
 import { useAuth } from "./auth-provider";
-import { NoProjectScreen } from "./no-project-screen";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 const PUBLIC_ROUTES = ["/login", "/register"];
+const PROJECT_PICKER_ROUTE = "/projects";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -13,16 +13,22 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   const isPublic = PUBLIC_ROUTES.includes(pathname);
+  const isProjectPicker = pathname === PROJECT_PICKER_ROUTE;
 
   useEffect(() => {
     if (loading) return;
 
     if (user === undefined && !isPublic) {
+      // Not authenticated — redirect to login
       router.replace("/login");
     } else if (user && isPublic) {
-      router.replace("/board");
+      // Authenticated on a public route — redirect to project picker
+      router.replace("/projects");
+    } else if (user && user.projectId === null && !isPublic && !isProjectPicker) {
+      // Authenticated but no project selected — redirect to project picker
+      router.replace("/projects");
     }
-  }, [user, loading, isPublic, router]);
+  }, [user, loading, isPublic, isProjectPicker, router]);
 
   if (loading) {
     return (
@@ -35,18 +41,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (user === undefined && !isPublic) {
-    return null;
-  }
+  // Not authenticated on a protected route — wait for redirect
+  if (user === undefined && !isPublic) return null;
 
-  if (user && isPublic) {
-    return null;
-  }
+  // Authenticated on a public route — wait for redirect
+  if (user && isPublic) return null;
 
-  // Authenticated but no project assigned yet — show the project setup screen
-  if (user && user.projectId === null && !isPublic) {
-    return <NoProjectScreen />;
-  }
+  // Authenticated but no project — only allow /projects
+  if (user && user.projectId === null && !isPublic && !isProjectPicker) return null;
 
   return <>{children}</>;
 }
