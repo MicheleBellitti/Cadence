@@ -97,6 +97,7 @@ export const inviteSchema = z.object({
   id: z.string().min(1),
   email: z.string().email(),
   projectId: z.string().min(1),
+  projectName: z.string().optional(),
   invitedBy: z.string().min(1),
   status: z.enum(["pending", "accepted"]),
   createdAt: z.string(),

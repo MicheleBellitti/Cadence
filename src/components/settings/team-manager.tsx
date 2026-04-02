@@ -215,6 +215,7 @@ function MemberCard({
 function InviteSection() {
   const { user } = useAuth();
   const projectId = useProjectId();
+  const projectName = useProjectStore((s) => s.project.name);
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteStatus, setInviteStatus] = useState<
@@ -249,7 +250,7 @@ function InviteSection() {
     setInviteStatus(null);
 
     try {
-      await createInvite(projectId, inviteEmail.trim(), user.uid);
+      await createInvite(projectId, inviteEmail.trim(), user.uid, projectName);
       setInviteStatus({
         type: "success",
         message: `Invite sent to ${inviteEmail.trim()}`,

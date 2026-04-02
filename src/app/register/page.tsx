@@ -56,10 +56,10 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await signUp(email, password, displayName.trim());
-      // AuthGate handles redirect on successful auth
+      // Auth succeeded — keep spinner visible while onAuthStateChanged
+      // loads the user profile.  AuthGate handles the redirect.
     } catch (err: unknown) {
       setError(getErrorMessage(err));
-    } finally {
       setLoading(false);
     }
   }
