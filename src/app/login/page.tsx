@@ -37,10 +37,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signIn(email, password);
-      // AuthGate handles redirect on successful auth
+      // Auth succeeded — keep spinner visible while onAuthStateChanged
+      // loads the user profile.  AuthGate handles the redirect.
     } catch (err: unknown) {
       setError(getErrorMessage(err));
-    } finally {
       setLoading(false);
     }
   }

@@ -111,6 +111,7 @@ export interface Invite {
   id: string;
   email: string;
   projectId: string;
+  projectName?: string;
   invitedBy: string;
   status: "pending" | "accepted";
   createdAt: string;

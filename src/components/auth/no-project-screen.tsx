@@ -19,10 +19,10 @@ function InviteCard({
     <div className="flex items-center justify-between gap-4 p-4 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg">
       <div className="min-w-0">
         <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-          Project invitation
+          {invite.projectName ?? "Project invitation"}
         </p>
         <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-          Project ID: <span className="font-mono">{invite.projectId}</span>
+          You&apos;ve been invited to collaborate
         </p>
       </div>
       <Button
