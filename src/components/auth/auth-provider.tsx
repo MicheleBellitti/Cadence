@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -12,6 +12,7 @@ import { doc, getDoc, getDocFromCache, setDoc, updateDoc } from "firebase/firest
 import { auth, getFirebaseDb } from "@/lib/firebase";
 import { firestoreCreateProject } from "@/lib/firestore-sync";
 import { onPendingInvites, acceptInvite } from "@/lib/invite";
+import { useProjectStore } from "@/stores/project-store";
 import type { FirebaseUser, Invite } from "@/types";
 
 interface AuthState {
@@ -25,6 +26,7 @@ interface AuthState {
   signOut: () => Promise<void>;
   acceptInviteFn: (inviteId: string, projectId: string) => Promise<void>;
   createProject: (name: string) => Promise<string>;
+  selectProject: (projectId: string | null) => void;
   refreshUser: () => Promise<void>;
 }
 
@@ -134,10 +136,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [pendingInvites, setPendingInvites] = useState<Invite[]>([]);
 
-  // Real-time invite listener: watches for new invites while the user
-  // is on the NoProjectScreen.  Fires whenever user state changes.
+  // Flag: when true, the user just signed in manually — force them through /projects.
+  // onAuthStateChanged must NOT override projectId back from cache.
+  const manualSignInRef = useRef(false);
+
+  // Real-time invite listener: watches for pending invites for the
+  // authenticated user. Active on all pages (notification bell in navbar).
   useEffect(() => {
-    if (user && user.projectId === null && user.email) {
+    if (user && user.email) {
       const unsub = onPendingInvites(user.email, setPendingInvites);
       return () => unsub();
     }
@@ -151,6 +157,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           if (fbUser) {
             setFirebaseUser(fbUser);
+
+            // If the user just signed in manually, skip fetching the
+            // user doc here — signIn() already set the state and we
+            // must NOT restore a stale projectId from the cache.
+            if (manualSignInRef.current) {
+              manualSignInRef.current = false;
+              setLoading(false);
+              return;
+            }
+
             const userData = await fetchOrCreateUserDoc(fbUser);
             if (userData) cacheUserProfile(userData);
             setUser(userData);
@@ -160,15 +176,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (err) {
           console.error("Auth state handler error:", err);
-          // Still let the user through — Auth succeeded even if Firestore read failed.
-          // Try localStorage cache to avoid showing NoProjectScreen incorrectly.
           if (fbUser) {
-            const cached = getCachedUserProfile(fbUser.uid);
+            // Auth succeeded but Firestore read failed — create a minimal user.
+            // Do NOT read from localStorage cache — it may be from a different user.
             setUser({
               uid: fbUser.uid,
               email: fbUser.email ?? "",
               displayName: fbUser.displayName ?? "",
-              projectId: cached?.projectId ?? null,
+              projectId: null,
             });
           } else {
             setUser(undefined);
@@ -196,33 +211,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    // Reset project store before signing in a (possibly different) user.
+    useProjectStore.getState().resetProject();
+    clearUserCache();
+
+    // Tell onAuthStateChanged to NOT override our state with cached data.
+    manualSignInRef.current = true;
+
     const cred = await signInWithEmailAndPassword(auth, email, password);
 
-    // Instant path: read projectId from localStorage cache (written on every
-    // successful Firestore read).  This avoids the Firestore auth-token
-    // propagation delay entirely for returning users.
-    const cached = getCachedUserProfile(cred.user.uid);
-
     setFirebaseUser(cred.user);
+    // Don't assume a projectId — the /projects page will handle project selection.
+    // This avoids serving stale data from a previous user's session.
     setUser({
       uid: cred.user.uid,
       email: cred.user.email ?? "",
       displayName: cred.user.displayName ?? "",
-      projectId: cached?.projectId ?? null,
+      projectId: null,
     });
     setLoading(false);
-
-    // Background refresh: update the cache & pick up any server-side changes.
-    // Uses aggressive short-interval retries instead of a single long wait.
-    const bgRefresh = async (attempt = 0) => {
-      try {
-        await refreshUser();
-      } catch {
-        if (attempt < 4) setTimeout(() => bgRefresh(attempt + 1), 300);
-      }
-    };
-    setTimeout(() => bgRefresh(), 200);
-  }, [refreshUser]);
+  }, []);
 
   const signUp = useCallback(async (email: string, password: string, displayName: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -253,6 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear state FIRST to unmount ProjectSync (unsubscribes listeners),
     // then sign out — prevents "permission denied" from still-active listeners
     clearUserCache();
+    useProjectStore.getState().resetProject();
     setUser(undefined);
     setFirebaseUser(null);
     setPendingInvites([]);
@@ -267,17 +276,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshUser();
   }, [refreshUser]);
 
+  const selectProject = useCallback((projectId: string | null) => {
+    setUser((prev) => prev ? { ...prev, projectId } : prev);
+    // Update user doc with the active projectId
+    const fbUser = auth.currentUser;
+    if (fbUser) {
+      updateDoc(doc(getFirebaseDb(), "users", fbUser.uid), { projectId }).catch(
+        (err) => console.error("Failed to update active projectId:", err)
+      );
+      if (projectId) {
+        cacheUserProfile({ ...(user as FirebaseUser), projectId });
+      } else {
+        clearUserCache();
+      }
+    }
+  }, [user]);
+
   const createProject = useCallback(async (name: string): Promise<string> => {
     const fbUser = auth.currentUser;
     if (!fbUser) throw new Error("Not authenticated");
     const projectId = crypto.randomUUID();
     await firestoreCreateProject(getFirebaseDb(), projectId, name, fbUser.uid);
-    // Update user doc with the new projectId
-    await updateDoc(doc(getFirebaseDb(), "users", fbUser.uid), { projectId });
-    // Refresh user state
-    await refreshUser();
     return projectId;
-  }, [refreshUser]);
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -291,6 +312,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut: signOutFn,
         acceptInviteFn,
         createProject,
+        selectProject,
         refreshUser,
       }}
     >
