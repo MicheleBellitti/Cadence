@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { useItems, useTeam, useOverrides, useSprints, useActiveSprint } from "@/stores/project-store";
+import { useItems, useTeam, useOverrides, useActiveSprint } from "@/stores/project-store";
 import { useAuth } from "@/components/auth/auth-provider";
 import { scheduleForward } from "@/lib/scheduler";
 import { computeCriticalPath } from "@/lib/critical-path";
@@ -11,10 +11,12 @@ import {
   getAtRiskItems,
   getTodayStr,
 } from "@/lib/dashboard-utils";
+import { computeBurndown } from "@/lib/burndown-utils";
 import { useProjectStore } from "@/stores/project-store";
 import { SprintProgressCard } from "@/components/dashboard/sprint-progress-card";
 import { MyTasksCard } from "@/components/dashboard/my-tasks-card";
 import { AtRiskCard } from "@/components/dashboard/at-risk-card";
+import { BurndownChart } from "@/components/dashboard/burndown-chart";
 import { ItemDetailDrawer } from "@/components/items/item-detail-drawer";
 
 export default function DashboardPage() {
@@ -41,6 +43,11 @@ export default function DashboardPage() {
     return computeSprintProgress(activeSprint, items, todayStr);
   }, [activeSprint, items, todayStr]);
 
+  const burndownData = useMemo(() => {
+    if (!activeSprint) return null;
+    return computeBurndown(activeSprint, items, todayStr);
+  }, [activeSprint, items, todayStr]);
+
   const myTasks = useMemo(() => {
     if (!user) return [];
     return getMyTasks(items, team, user.uid);
@@ -49,8 +56,6 @@ export default function DashboardPage() {
   const atRiskItems = useMemo(() => {
     return getAtRiskItems(items, scheduled, todayStr);
   }, [items, scheduled, todayStr]);
-
-
 
   const handleItemClick = useCallback((id: string) => {
     setSelectedItemId(id);
@@ -65,6 +70,12 @@ export default function DashboardPage() {
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
         {/* Sprint progress — full width at top */}
         <SprintProgressCard progress={sprintProgress} />
+
+        {/* Burndown chart */}
+        <BurndownChart
+          data={burndownData}
+          sprintName={activeSprint?.name}
+        />
 
         {/* Two-column: My Tasks + At Risk */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
