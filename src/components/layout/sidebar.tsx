@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Home,
   LayoutDashboard,
   GanttChart,
   Users,
@@ -19,6 +20,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
 const navItems = [
+  { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/board", label: "Board", icon: LayoutDashboard },
   { href: "/gantt", label: "Gantt", icon: GanttChart },
   { href: "/workload", label: "Workload", icon: Users },
