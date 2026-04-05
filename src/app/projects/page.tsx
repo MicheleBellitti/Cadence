@@ -156,7 +156,7 @@ export default function ProjectsPage() {
 
   function handleSelectProject(projectId: string) {
     selectProject(projectId);
-    router.push("/board");
+    router.push("/dashboard");
   }
 
   async function handleCreateProject(e: FormEvent) {
@@ -172,7 +172,7 @@ export default function ProjectsPage() {
     try {
       const id = await createProject(name);
       selectProject(id);
-      router.push("/board");
+      router.push("/dashboard");
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Failed to create project.");
     } finally {
