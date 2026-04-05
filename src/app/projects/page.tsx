@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { fetchUserProjects, type ProjectSummary } from "@/lib/firestore-sync";
@@ -115,9 +115,13 @@ export default function ProjectsPage() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState("");
 
+  // Monotonic counter to discard stale responses from overlapping fetches.
+  const fetchIdRef = useRef(0);
+
   // Fetch projects — extracted so it can be re-used by the Retry button.
   const loadProjects = useCallback(async () => {
     if (!user) return;
+    const fetchId = ++fetchIdRef.current;
     setLoadingProjects(true);
     setFetchError("");
     try {
@@ -130,16 +134,21 @@ export default function ProjectsPage() {
         () => fetchUserProjects(getFirebaseDb(), user.uid),
         fbUser,
       );
+      // Only apply if this is still the latest request.
+      if (fetchId !== fetchIdRef.current) return;
       setProjects(result);
       setFetchError("");
     } catch (err) {
+      if (fetchId !== fetchIdRef.current) return;
       setFetchError(err instanceof Error ? err.message : "Failed to load projects");
     } finally {
-      setLoadingProjects(false);
+      if (fetchId === fetchIdRef.current) {
+        setLoadingProjects(false);
+      }
     }
   }, [user]);
 
-  // Fetch projects on mount.
+  // Fetch projects on mount and when user changes.
   useEffect(() => {
     if (!user) return;
     loadProjects();
