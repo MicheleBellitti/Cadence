@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/auth-provider";
 import { fetchUserProjects, type ProjectSummary } from "@/lib/firestore-sync";
-import { getFirebaseDb, auth } from "@/lib/firebase";
+import { getFirebaseDb, withTokenRetry, getFirebaseAuth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FolderOpen, Plus, Users, LogOut, ChevronRight } from "lucide-react";
@@ -115,42 +115,35 @@ export default function ProjectsPage() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [acceptError, setAcceptError] = useState("");
 
+  // Fetch projects — extracted so it can be re-used by the Retry button.
+  const loadProjects = useCallback(async () => {
+    if (!user) return;
+    setLoadingProjects(true);
+    setFetchError("");
+    try {
+      // Force-refresh the token before querying to clear stale tokens.
+      const fbUser = getFirebaseAuth().currentUser;
+      if (fbUser) {
+        try { await fbUser.getIdToken(true); } catch { /* best-effort */ }
+      }
+      const result = await withTokenRetry(
+        () => fetchUserProjects(getFirebaseDb(), user.uid),
+        fbUser,
+      );
+      setProjects(result);
+      setFetchError("");
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : "Failed to load projects");
+    } finally {
+      setLoadingProjects(false);
+    }
+  }, [user]);
+
   // Fetch projects on mount.
-  // After signIn, Firestore may reject queries until the auth token propagates.
-  // Force-refresh the token first to ensure Firestore accepts the request,
-  // then retry with exponential backoff as a safety net.
   useEffect(() => {
     if (!user) return;
-    let cancelled = false;
-
-    async function load(attempt = 0) {
-      try {
-        // On first attempt, force-refresh the ID token so Firestore security
-        // rules see the authenticated user immediately.
-        if (attempt === 0 && auth.currentUser) {
-          await auth.currentUser.getIdToken(true);
-        }
-
-        const result = await fetchUserProjects(getFirebaseDb(), user!.uid);
-        if (!cancelled) {
-          setProjects(result);
-          setFetchError("");
-          setLoadingProjects(false);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        if (attempt < 5) {
-          setTimeout(() => load(attempt + 1), 500 * (attempt + 1));
-        } else {
-          setFetchError(err instanceof Error ? err.message : "Failed to load projects");
-          setLoadingProjects(false);
-        }
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, [user]);
+    loadProjects();
+  }, [user, loadProjects]);
 
   function handleSelectProject(projectId: string) {
     selectProject(projectId);
@@ -185,7 +178,10 @@ export default function ProjectsPage() {
       await acceptInviteFn(inviteId, projectId);
       // Refresh the project list
       if (user) {
-        const result = await fetchUserProjects(getFirebaseDb(), user.uid);
+        const result = await withTokenRetry(
+          () => fetchUserProjects(getFirebaseDb(), user.uid),
+          getFirebaseAuth().currentUser,
+        );
         setProjects(result);
       }
     } catch (err) {
@@ -260,7 +256,7 @@ export default function ProjectsPage() {
           ) : fetchError ? (
             <div className="text-center py-12">
               <p className="text-sm text-[var(--danger)] mb-3">{fetchError}</p>
-              <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+              <Button variant="secondary" size="sm" onClick={loadProjects}>
                 Retry
               </Button>
             </div>

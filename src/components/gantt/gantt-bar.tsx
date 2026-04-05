@@ -86,6 +86,12 @@ export function GanttBar({
 
   // Bar color: assignee color if assigned, else item type color
   const bgColor = assignee ? assignee.color : ITEM_COLORS[item.type];
+  // Type indicator: always shows item type color as a left stripe
+  const typeColor = ITEM_COLORS[item.type];
+  // Status-based visual modifiers
+  const isDone = item.status === "done";
+  const isTodo = item.status === "todo";
+  const statusOpacity = isDone ? 0.55 : isTodo ? 0.75 : 1;
 
   // --- Drag to move ---
   const handleDragStart = useCallback(
@@ -205,6 +211,7 @@ export function GanttBar({
           width: Math.max(width, pxPerDay),
           height: BAR_HEIGHT,
           backgroundColor: bgColor,
+          opacity: statusOpacity,
           border: scheduled.isCritical
             ? "2px solid var(--purple)"
             : "1px solid rgba(0,0,0,0.15)",
@@ -219,6 +226,33 @@ export function GanttBar({
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
       >
+        {/* Type indicator stripe — always visible to disambiguate item type from assignee color */}
+        <div
+          className="absolute left-0 top-0 h-full rounded-l-md pointer-events-none"
+          style={{ width: 4, backgroundColor: typeColor }}
+        />
+
+        {/* Done: diagonal stripe overlay */}
+        {isDone && (
+          <div
+            className="absolute inset-0 pointer-events-none rounded-md"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(135deg, transparent, transparent 4px, rgba(255,255,255,0.18) 4px, rgba(255,255,255,0.18) 6px)",
+            }}
+          />
+        )}
+
+        {/* Done checkmark */}
+        {isDone && (
+          <span
+            className="ml-1.5 shrink-0 text-white pointer-events-none"
+            style={{ fontSize: 11, textShadow: "0 1px 2px rgba(0,0,0,0.4)" }}
+          >
+            ✓
+          </span>
+        )}
+
         {/* Label */}
         <span
           className="px-1.5 text-[10px] font-medium text-white truncate pointer-events-none"

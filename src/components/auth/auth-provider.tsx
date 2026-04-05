@@ -8,8 +8,8 @@ import {
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, getDocFromCache, setDoc, updateDoc } from "firebase/firestore";
-import { auth, getFirebaseDb } from "@/lib/firebase";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { getFirebaseAuth, getFirebaseDb, withTokenRetry, clearLegacyFirestoreCache } from "@/lib/firebase";
 import { firestoreCreateProject } from "@/lib/firestore-sync";
 import { onPendingInvites, acceptInvite } from "@/lib/invite";
 import { useProjectStore } from "@/stores/project-store";
@@ -38,32 +38,28 @@ export function useAuth(): AuthState {
   return ctx;
 }
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 500;
 const USER_CACHE_KEY = "cadence-user-cache";
+const LAST_UID_KEY = "cadence-last-uid";
 
 /** Persist minimal user profile in localStorage for instant sign-in. */
 function cacheUserProfile(u: FirebaseUser): void {
   try {
     localStorage.setItem(USER_CACHE_KEY, JSON.stringify({ uid: u.uid, email: u.email, displayName: u.displayName, projectId: u.projectId }));
+    localStorage.setItem(LAST_UID_KEY, u.uid);
   } catch { /* quota exceeded or SSR — ignore */ }
-}
-
-/** Read cached user profile. Returns null on miss or uid mismatch. */
-function getCachedUserProfile(uid: string): FirebaseUser | null {
-  try {
-    const raw = localStorage.getItem(USER_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as FirebaseUser;
-    if (parsed.uid !== uid) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
 }
 
 function clearUserCache(): void {
   try { localStorage.removeItem(USER_CACHE_KEY); } catch { /* ignore */ }
+}
+
+/** Read the UID from the previous session. */
+function getLastUid(): string | null {
+  try { return localStorage.getItem(LAST_UID_KEY); } catch { return null; }
+}
+
+function clearLastUid(): void {
+  try { localStorage.removeItem(LAST_UID_KEY); } catch { /* ignore */ }
 }
 
 function snapToUser(fbUser: User, data: Record<string, unknown>): FirebaseUser {
@@ -75,36 +71,14 @@ function snapToUser(fbUser: User, data: Record<string, unknown>): FirebaseUser {
   };
 }
 
-async function fetchOrCreateUserDoc(fbUser: User, retries = 0): Promise<FirebaseUser | null> {
+/**
+ * Fetch or create the user document from Firestore.
+ * Uses `withTokenRetry` to handle stale tokens after cold starts.
+ */
+async function fetchOrCreateUserDoc(fbUser: User): Promise<FirebaseUser> {
   const userRef = doc(getFirebaseDb(), "users", fbUser.uid);
 
-  // Fast path: read from the persistent cache (IndexedDB).
-  // This works even before Firestore's auth token has propagated because
-  // the local cache doesn't evaluate security rules.
-  if (retries === 0) {
-    try {
-      const cached = await getDocFromCache(userRef);
-      if (cached.exists()) {
-        const u = snapToUser(fbUser, cached.data());
-        cacheUserProfile(u);
-        return u;
-      }
-    } catch {
-      // Cache miss — fall through to server fetch
-    }
-  }
-
-  // Server fetch with retry on permission-denied (token propagation delay)
-  let snap;
-  try {
-    snap = await getDoc(userRef);
-  } catch (err) {
-    if (retries < MAX_RETRIES) {
-      await new Promise((r) => setTimeout(r, RETRY_DELAY));
-      return fetchOrCreateUserDoc(fbUser, retries + 1);
-    }
-    throw err;
-  }
+  const snap = await withTokenRetry(() => getDoc(userRef), fbUser);
 
   if (snap.exists()) {
     const u = snapToUser(fbUser, snap.data());
@@ -112,20 +86,14 @@ async function fetchOrCreateUserDoc(fbUser: User, retries = 0): Promise<Firebase
     return u;
   }
 
-  // Document doesn't exist — might be mid-registration
-  if (retries < MAX_RETRIES) {
-    await new Promise((r) => setTimeout(r, RETRY_DELAY));
-    return fetchOrCreateUserDoc(fbUser, retries + 1);
-  }
-
-  // Lazy create as fallback
+  // Document doesn't exist — lazy create.
   const newUser: FirebaseUser = {
     uid: fbUser.uid,
     email: fbUser.email ?? "",
     displayName: fbUser.displayName ?? "",
     projectId: null,
   };
-  await setDoc(userRef, newUser);
+  await withTokenRetry(() => setDoc(userRef, newUser), fbUser);
   cacheUserProfile(newUser);
   return newUser;
 }
@@ -151,20 +119,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
+    // Delete old Firestore IndexedDB from persistentLocalCache.
+    // Prevents any possibility of stale cross-user cached data.
+    clearLegacyFirestoreCache();
+
     let unsubscribe: (() => void) | undefined;
     try {
-      unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      const realAuth = getFirebaseAuth();
+      unsubscribe = onAuthStateChanged(realAuth, async (fbUser) => {
+        // If a manual sign-in is in progress, signIn() manages state directly.
+        // Skip ALL processing — both sign-in and sign-out events — to prevent
+        // the onAuthStateChanged(null) from firebaseSignOut racing with
+        // signIn()'s setUser() call.
+        if (manualSignInRef.current) {
+          if (fbUser) {
+            // This is the onAuthStateChanged(UserB) from signInWithEmailAndPassword.
+            // signIn() already set the state. Just clear the flag.
+            manualSignInRef.current = false;
+          }
+          // For null events (from firebaseSignOut), keep the flag set —
+          // signIn() will handle the state.
+          setLoading(false);
+          return;
+        }
+
         try {
           if (fbUser) {
             setFirebaseUser(fbUser);
 
-            // If the user just signed in manually, skip fetching the
-            // user doc here — signIn() already set the state and we
-            // must NOT restore a stale projectId from the cache.
-            if (manualSignInRef.current) {
-              manualSignInRef.current = false;
-              setLoading(false);
-              return;
+            // Detect UID change: if the authenticated user differs from the
+            // last session, clear localStorage caches and reset project store.
+            const lastUid = getLastUid();
+            if (lastUid && lastUid !== fbUser.uid) {
+              clearUserCache();
+              useProjectStore.getState().resetProject();
+            }
+
+            // Force-refresh the ID token so Firestore security rules
+            // accept requests immediately (stale tokens from days ago fail).
+            try {
+              await fbUser.getIdToken(true);
+            } catch {
+              // Token refresh failed (offline?) — proceed anyway,
+              // fetchOrCreateUserDoc will retry on permission errors.
             }
 
             const userData = await fetchOrCreateUserDoc(fbUser);
@@ -178,7 +175,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("Auth state handler error:", err);
           if (fbUser) {
             // Auth succeeded but Firestore read failed — create a minimal user.
-            // Do NOT read from localStorage cache — it may be from a different user.
             setUser({
               uid: fbUser.uid,
               email: fbUser.email ?? "",
@@ -193,7 +189,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       });
     } catch {
-      // Firebase not configured (missing API key, etc.) — treat as unauthenticated
       console.error("Firebase Auth initialization failed. Check your .env.local configuration.");
       setUser(undefined);
       setLoading(false);
@@ -203,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const fbUser = auth.currentUser;
+    const fbUser = getFirebaseAuth().currentUser;
     if (!fbUser) return;
     const userData = await fetchOrCreateUserDoc(fbUser);
     if (userData) cacheUserProfile(userData);
@@ -211,29 +206,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    // Reset project store before signing in a (possibly different) user.
+    const realAuth = getFirebaseAuth();
+
+    // Sign out any existing user FIRST to prevent stale sessions.
+    try {
+      await firebaseSignOut(realAuth);
+    } catch { /* ignore sign-out errors */ }
+
+    // Reset project store and clear localStorage caches.
     useProjectStore.getState().resetProject();
     clearUserCache();
+    clearLastUid();
 
-    // Tell onAuthStateChanged to NOT override our state with cached data.
+    // Tell onAuthStateChanged to skip ALL events during the sign-in flow.
+    // This prevents the onAuthStateChanged(null) from firebaseSignOut from
+    // racing with our setUser() call below.
     manualSignInRef.current = true;
 
-    const cred = await signInWithEmailAndPassword(auth, email, password);
+    try {
+      const cred = await signInWithEmailAndPassword(realAuth, email, password);
 
-    setFirebaseUser(cred.user);
-    // Don't assume a projectId — the /projects page will handle project selection.
-    // This avoids serving stale data from a previous user's session.
-    setUser({
-      uid: cred.user.uid,
-      email: cred.user.email ?? "",
-      displayName: cred.user.displayName ?? "",
-      projectId: null,
-    });
-    setLoading(false);
+      // Force-refresh the ID token so Firestore accepts requests immediately.
+      try {
+        await cred.user.getIdToken(true);
+      } catch { /* best-effort */ }
+
+      setFirebaseUser(cred.user);
+      setUser({
+        uid: cred.user.uid,
+        email: cred.user.email ?? "",
+        displayName: cred.user.displayName ?? "",
+        projectId: null,
+      });
+      setLoading(false);
+    } catch (err) {
+      manualSignInRef.current = false;
+      setUser(undefined);
+      setFirebaseUser(null);
+      setLoading(false);
+      throw err;
+    }
   }, []);
 
   const signUp = useCallback(async (email: string, password: string, displayName: string) => {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const cred = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
 
     const newUser: FirebaseUser = {
       uid: cred.user.uid,
@@ -261,15 +277,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear state FIRST to unmount ProjectSync (unsubscribes listeners),
     // then sign out — prevents "permission denied" from still-active listeners
     clearUserCache();
+    clearLastUid();
     useProjectStore.getState().resetProject();
     setUser(undefined);
     setFirebaseUser(null);
     setPendingInvites([]);
-    await firebaseSignOut(auth);
+    await firebaseSignOut(getFirebaseAuth());
   }, []);
 
   const acceptInviteFn = useCallback(async (inviteId: string, projectId: string) => {
-    const fbUser = auth.currentUser;
+    const fbUser = getFirebaseAuth().currentUser;
     if (!fbUser) throw new Error("Not authenticated");
     await acceptInvite(inviteId, projectId, fbUser.uid);
     // Refresh user doc to pick up the new projectId written by acceptInvite
@@ -279,7 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const selectProject = useCallback((projectId: string | null) => {
     setUser((prev) => prev ? { ...prev, projectId } : prev);
     // Update user doc with the active projectId
-    const fbUser = auth.currentUser;
+    const fbUser = getFirebaseAuth().currentUser;
     if (fbUser) {
       updateDoc(doc(getFirebaseDb(), "users", fbUser.uid), { projectId }).catch(
         (err) => console.error("Failed to update active projectId:", err)
@@ -293,7 +310,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const createProject = useCallback(async (name: string): Promise<string> => {
-    const fbUser = auth.currentUser;
+    const fbUser = getFirebaseAuth().currentUser;
     if (!fbUser) throw new Error("Not authenticated");
     const projectId = crypto.randomUUID();
     await firestoreCreateProject(getFirebaseDb(), projectId, name, fbUser.uid);
