@@ -1,0 +1,183 @@
+<h2>Dashboard Layout</h2>
+<p class="subtitle">How should the 3 core sections be arranged?</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12px; color: #888;">
+        <!-- Sprint banner -->
+        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="color: #e2e8f0; font-weight: 600;">Sprint 3 — Auth Overhaul</div>
+            <div style="color: #94a3b8; font-size: 11px; margin-top: 2px;">6 of 14 days remaining</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 120px; height: 6px; background: #334155; border-radius: 3px; overflow: hidden;">
+              <div style="width: 57%; height: 100%; background: #6366f1; border-radius: 3px;"></div>
+            </div>
+            <span style="color: #e2e8f0; font-weight: 600;">57%</span>
+          </div>
+        </div>
+        <!-- Two columns -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <!-- My tasks -->
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px;">
+            <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">My Tasks (5)</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+                <span style="color: #e2e8f0; font-size: 11px;">Fix login race</span>
+                <span style="color: #ef4444; font-size: 10px;">critical</span>
+              </div>
+              <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+                <span style="color: #e2e8f0; font-size: 11px;">Add invite flow</span>
+                <span style="color: #f59e0b; font-size: 10px;">high</span>
+              </div>
+              <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+                <span style="color: #e2e8f0; font-size: 11px;">Update docs</span>
+                <span style="color: #22c55e; font-size: 10px;">medium</span>
+              </div>
+            </div>
+          </div>
+          <!-- At risk -->
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px;">
+            <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">At Risk (2)</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="background: #0f172a; border: 1px solid #7f1d1d; border-radius: 4px; padding: 6px 8px;">
+                <div style="color: #fca5a5; font-size: 11px;">Auth middleware</div>
+                <div style="color: #94a3b8; font-size: 10px; margin-top: 2px;">Critical path · 0 slack</div>
+              </div>
+              <div style="background: #0f172a; border: 1px solid #7f1d1d; border-radius: 4px; padding: 6px 8px;">
+                <div style="color: #fca5a5; font-size: 11px;">DB migration</div>
+                <div style="color: #94a3b8; font-size: 10px; margin-top: 2px;">Critical path · 0 slack</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: Sprint Banner + 2-Column Grid</h3>
+      <p>Sprint progress as a full-width banner on top. My Tasks and At Risk side by side below. Clean hierarchy — sprint status is always visible first.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12px; color: #888;">
+        <!-- Three equal columns -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+          <!-- Sprint -->
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px;">
+            <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Active Sprint</div>
+            <div style="color: #e2e8f0; font-weight: 600; font-size: 14px;">Sprint 3</div>
+            <div style="color: #94a3b8; font-size: 11px; margin-top: 2px;">Auth Overhaul</div>
+            <div style="margin-top: 10px; display: flex; gap: 16px;">
+              <div><div style="color: #6366f1; font-size: 18px; font-weight: 700;">8</div><div style="color: #64748b; font-size: 10px;">Done</div></div>
+              <div><div style="color: #e2e8f0; font-size: 18px; font-weight: 700;">6</div><div style="color: #64748b; font-size: 10px;">Remaining</div></div>
+              <div><div style="color: #f59e0b; font-size: 18px; font-weight: 700;">6d</div><div style="color: #64748b; font-size: 10px;">Left</div></div>
+            </div>
+            <div style="margin-top: 10px; width: 100%; height: 6px; background: #334155; border-radius: 3px; overflow: hidden;">
+              <div style="width: 57%; height: 100%; background: #6366f1; border-radius: 3px;"></div>
+            </div>
+          </div>
+          <!-- My tasks -->
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px;">
+            <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">My Tasks (5)</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+                <span style="color: #e2e8f0; font-size: 11px;">Fix login race</span>
+                <span style="color: #ef4444; font-size: 10px;">critical</span>
+              </div>
+              <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+                <span style="color: #e2e8f0; font-size: 11px;">Add invite flow</span>
+                <span style="color: #f59e0b; font-size: 10px;">high</span>
+              </div>
+              <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+                <span style="color: #e2e8f0; font-size: 11px;">Update docs</span>
+                <span style="color: #22c55e; font-size: 10px;">medium</span>
+              </div>
+            </div>
+          </div>
+          <!-- At risk -->
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px;">
+            <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">At Risk (2)</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="background: #0f172a; border: 1px solid #7f1d1d; border-radius: 4px; padding: 6px 8px;">
+                <div style="color: #fca5a5; font-size: 11px;">Auth middleware</div>
+                <div style="color: #94a3b8; font-size: 10px; margin-top: 2px;">0 slack · critical path</div>
+              </div>
+              <div style="background: #0f172a; border: 1px solid #7f1d1d; border-radius: 4px; padding: 6px 8px;">
+                <div style="color: #fca5a5; font-size: 11px;">DB migration</div>
+                <div style="color: #94a3b8; font-size: 10px; margin-top: 2px;">0 slack · critical path</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: 3-Column Equal Grid</h3>
+      <p>All three sections as equal-width columns. Sprint stats shown as big numbers. Everything visible at a glance without scrolling. More data-dense.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12px; color: #888;">
+        <!-- Sprint banner -->
+        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="color: #e2e8f0; font-weight: 600;">Sprint 3 — Auth Overhaul</div>
+            <div style="color: #94a3b8; font-size: 11px; margin-top: 2px;">6 of 14 days · 8 done, 6 remaining</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 120px; height: 6px; background: #334155; border-radius: 3px; overflow: hidden;">
+              <div style="width: 57%; height: 100%; background: #6366f1; border-radius: 3px;"></div>
+            </div>
+            <span style="color: #e2e8f0; font-weight: 600;">57%</span>
+          </div>
+        </div>
+        <!-- My tasks full width -->
+        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px;">
+          <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">My Tasks (5)</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+              <span style="color: #e2e8f0; font-size: 11px;">Fix login race</span>
+              <span style="color: #ef4444; font-size: 10px;">critical</span>
+            </div>
+            <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+              <span style="color: #e2e8f0; font-size: 11px;">Add invite flow</span>
+              <span style="color: #f59e0b; font-size: 10px;">high</span>
+            </div>
+            <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+              <span style="color: #e2e8f0; font-size: 11px;">Update docs</span>
+              <span style="color: #22c55e; font-size: 10px;">medium</span>
+            </div>
+            <div style="background: #0f172a; border-radius: 4px; padding: 6px 8px; display: flex; justify-content: space-between;">
+              <span style="color: #e2e8f0; font-size: 11px;">Write tests</span>
+              <span style="color: #22c55e; font-size: 10px;">medium</span>
+            </div>
+          </div>
+        </div>
+        <!-- At risk -->
+        <div style="background: #1e293b; border: 1px solid #451a1a; border-radius: 8px; padding: 12px;">
+          <div style="color: #fca5a5; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">⚠ At Risk (2)</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <div style="background: #0f172a; border: 1px solid #7f1d1d; border-radius: 4px; padding: 6px 8px;">
+              <div style="color: #fca5a5; font-size: 11px;">Auth middleware</div>
+              <div style="color: #94a3b8; font-size: 10px; margin-top: 2px;">Critical path · 0 slack</div>
+            </div>
+            <div style="background: #0f172a; border: 1px solid #7f1d1d; border-radius: 4px; padding: 6px 8px;">
+              <div style="color: #fca5a5; font-size: 11px;">DB migration</div>
+              <div style="color: #94a3b8; font-size: 10px; margin-top: 2px;">Critical path · 0 slack</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C: Stacked Full-Width</h3>
+      <p>Sprint banner on top, then My Tasks (2-col grid) and At Risk stacked vertically. Each section gets full width — more room for task names. Works better on narrower screens.</p>
+    </div>
+  </div>
+</div>

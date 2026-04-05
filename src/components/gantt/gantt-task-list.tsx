@@ -1,8 +1,22 @@
 "use client";
 
 import { forwardRef } from "react";
-import type { Item, TeamMember, ScheduledItem } from "@/types";
+import type { Item, TeamMember, ScheduledItem, Status } from "@/types";
 import { ITEM_COLORS } from "@/types";
+
+const STATUS_ICONS: Record<Status, string> = {
+  todo: "\u25CB",       // ○ empty circle
+  in_progress: "\u25D4", // ◔ quarter circle
+  in_review: "\u25D1",   // ◑ half circle
+  done: "\u25CF",        // ● filled circle
+};
+
+const STATUS_COLORS: Record<Status, string> = {
+  todo: "var(--text-secondary)",
+  in_progress: "#2563EB",
+  in_review: "#D97706",
+  done: "#059669",
+};
 
 const ROW_HEIGHT = 48;
 
@@ -40,7 +54,7 @@ export const GanttTaskList = forwardRef<HTMLDivElement, GanttTaskListProps>(
     return (
       <div
         className="shrink-0 border-r border-[var(--border)] bg-[var(--bg-surface)] overflow-hidden"
-        style={{ width: 370 }}
+        style={{ width: 410 }}
       >
         {/* Header */}
         <div
@@ -48,6 +62,7 @@ export const GanttTaskList = forwardRef<HTMLDivElement, GanttTaskListProps>(
           style={{ height: ROW_HEIGHT }}
         >
           <span className="flex-1">Item</span>
+          <span className="w-10 text-center">Status</span>
           <span className="w-20 text-right">Assignee</span>
           <span className="w-12 text-right">Days</span>
         </div>
@@ -94,6 +109,19 @@ export const GanttTaskList = forwardRef<HTMLDivElement, GanttTaskListProps>(
                   </span>
                   <span className="text-xs text-[var(--text-primary)] truncate">
                     {item.title}
+                  </span>
+                </div>
+
+                {/* Status */}
+                <div
+                  className="w-10 flex items-center justify-center shrink-0"
+                  title={item.status.replace("_", " ")}
+                >
+                  <span
+                    className="text-xs"
+                    style={{ color: STATUS_COLORS[item.status] }}
+                  >
+                    {STATUS_ICONS[item.status]}
                   </span>
                 </div>
 
