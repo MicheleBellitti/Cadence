@@ -62,7 +62,7 @@ export function BurndownChart({ data, sprintName }: BurndownChartProps) {
 
     // X-axis labels: show ~6 evenly spaced dates
     const labelCount = Math.min(6, points.length);
-    const step = Math.max(1, Math.floor((points.length - 1) / (labelCount - 1)));
+    const step = Math.max(1, Math.floor((points.length - 1) / Math.max(1, labelCount - 1)));
     const xLabels: { x: number; label: string }[] = [];
     for (let i = 0; i < points.length; i += step) {
       const date = points[i].date;

@@ -84,6 +84,7 @@ export function computeBurndown(
   // Uses `updatedAt` as proxy for completion time.
   const completionsPerDay = new Map<string, number>();
   let completedItems = 0;
+  let preSprintCompletions = 0;
   let totalPoints = 0;
   let completedPoints = 0;
 
@@ -97,7 +98,12 @@ export function computeBurndown(
         completedPoints += item.storyPoints;
       }
       const doneDate = toDateStr(item.updatedAt);
-      completionsPerDay.set(doneDate, (completionsPerDay.get(doneDate) ?? 0) + 1);
+      if (doneDate < sprintStart) {
+        // Items completed before the sprint started — reduce initial remaining
+        preSprintCompletions++;
+      } else {
+        completionsPerDay.set(doneDate, (completionsPerDay.get(doneDate) ?? 0) + 1);
+      }
     }
   }
 
@@ -106,13 +112,15 @@ export function computeBurndown(
   const totalDays = allDates.length;
   const points: BurndownPoint[] = [];
 
-  let remaining = totalItems;
+  // Subtract pre-sprint completions so actual line starts at correct value
+  let remaining = totalItems - preSprintCompletions;
 
   for (let i = 0; i < allDates.length; i++) {
     const date = allDates[i];
 
-    // Ideal: linear from totalItems on day 0 to 0 on last day
-    const ideal = totalItems * (1 - (i / (totalDays - 1 || 1)));
+    // Ideal: linear from initial remaining on day 0 to 0 on last day
+    const idealStart = totalItems - preSprintCompletions;
+    const ideal = idealStart * (1 - (i / (totalDays - 1 || 1)));
 
     // Actual: subtract completions up to and including this date
     const completed = completionsPerDay.get(date) ?? 0;

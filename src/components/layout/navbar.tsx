@@ -15,6 +15,7 @@ const COLLAPSED_WIDTH = 64;
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/board": "Kanban Board",
+  "/dashboard": "Dashboard",
   "/gantt": "Gantt Chart",
   "/workload": "Workload",
   "/settings": "Settings",
