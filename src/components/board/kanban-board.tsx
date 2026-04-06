@@ -13,6 +13,7 @@ import { KanbanColumn } from "./kanban-column";
 import { KanbanCard } from "./kanban-card";
 import { SprintHeader } from "./sprint-header";
 import { SprintCompleteModal } from "./sprint-complete-modal";
+import { SprintBurndownChart } from "./sprint-burndown-chart";
 import { ItemDetailDrawer } from "@/components/items/item-detail-drawer";
 import { Select } from "@/components/ui/select";
 import {
@@ -20,6 +21,7 @@ import {
   useItems,
   useTeam,
   useActiveSprint,
+  useSprints,
 } from "@/stores/project-store";
 import type { Item, Status, ItemType, Priority, TeamMember } from "@/types";
 import { STATUSES } from "@/types";
@@ -27,6 +29,7 @@ import { STATUSES } from "@/types";
 function KanbanBoard() {
   const items = useItems();
   const team = useTeam();
+  const sprints = useSprints();
   const activeSprint = useActiveSprint();
   const addItem = useProjectStore((s) => s.addItem);
   const moveItem = useProjectStore((s) => s.moveItem);
@@ -241,6 +244,14 @@ function KanbanBoard() {
     [addItem, sprintFilter]
   );
 
+  // Show burndown for active or completed sprints with dates
+  const burndownSprintId = useMemo(() => {
+    if (!sprintFilter || sprintFilter === "all" || sprintFilter === null) return null;
+    const sp = sprints.find((s) => s.id === sprintFilter);
+    if (!sp || !sp.startDate) return null;
+    return sp.id;
+  }, [sprintFilter, sprints]);
+
   const handleCardClick = useCallback((itemId: string) => {
     setSelectedItemId(itemId);
   }, []);
@@ -288,6 +299,9 @@ function KanbanBoard() {
         onFilterChange={setSprintFilter}
         onCompleteSprint={(id) => setCompleteSprintId(id)}
       />
+
+      {/* Burndown chart (active/completed sprints with dates) */}
+      {burndownSprintId && <SprintBurndownChart sprintId={burndownSprintId} />}
 
       {/* Board */}
       <div className="flex-1 overflow-x-auto p-6">

@@ -32,9 +32,15 @@ import {
   firestoreCompleteSprint,
   firestoreAssignToSprint,
 } from "@/lib/firestore-sync";
+import { formatDate } from "@/lib/date-utils";
 
 function now(): string {
   return new Date().toISOString();
+}
+
+/** Format a Date as YYYY-MM-DD for calendar-day fields (sprint start/end). */
+function toDateStr(date: Date): string {
+  return formatDate(date);
 }
 
 function newId(): string {
@@ -685,10 +691,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       );
       if (hasActive) return state;
 
-      const startDate = timestamp;
+      const startDate = toDateStr(new Date());
       const endDateObj = new Date(startDate);
       endDateObj.setDate(endDateObj.getDate() + durationDays);
-      const endDate = endDateObj.toISOString();
+      const endDate = toDateStr(endDateObj);
 
       return {
         project: {
@@ -712,14 +718,15 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      const endDateObj = new Date(timestamp);
-      endDateObj.setDate(endDateObj.getDate() + durationDays);
+      const fsStart = toDateStr(new Date());
+      const fsEndObj = new Date(fsStart);
+      fsEndObj.setDate(fsEndObj.getDate() + durationDays);
       firestoreStartSprint(
         getFirebaseDb(),
         projectId,
         id,
-        timestamp,
-        endDateObj.toISOString()
+        fsStart,
+        toDateStr(fsEndObj)
       ).catch(handleWriteError("start sprint"));
     }
   },
