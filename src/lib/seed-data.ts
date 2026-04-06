@@ -13,15 +13,15 @@ export async function loadSeedData(projectId: string): Promise<void> {
   const yesterday = new Date(today.getTime() - 86400000);
   const twoWeeksLater = new Date(today.getTime() + 14 * 86400000);
 
-  const toISO = (d: Date) => d.toISOString();
+  const toDateStr = (d: Date) => d.toISOString().slice(0, 10);
 
   const sprint1: Sprint = {
     id: "sprint-1",
     name: "Sprint 1",
     goal: "Set up data pipeline foundations",
     status: "completed",
-    startDate: toISO(twoWeeksAgo),
-    endDate: toISO(yesterday),
+    startDate: toDateStr(twoWeeksAgo),
+    endDate: toDateStr(yesterday),
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
   };
@@ -31,8 +31,8 @@ export async function loadSeedData(projectId: string): Promise<void> {
     name: "Sprint 2",
     goal: "Model architecture and training setup",
     status: "active",
-    startDate: toISO(today),
-    endDate: toISO(twoWeeksLater),
+    startDate: toDateStr(today),
+    endDate: toDateStr(twoWeeksLater),
     createdAt: TIMESTAMP,
     updatedAt: TIMESTAMP,
   };
