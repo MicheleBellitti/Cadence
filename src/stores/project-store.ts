@@ -34,13 +34,21 @@ import {
 } from "@/lib/firestore-sync";
 import { formatDate } from "@/lib/date-utils";
 
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
 function now(): string {
   return new Date().toISOString();
 }
 
-/** Format a Date as YYYY-MM-DD for calendar-day fields (sprint start/end). */
-function toDateStr(date: Date): string {
-  return formatDate(date);
+/** Today as YYYY-MM-DD (UTC). */
+function todayDateStr(): string {
+  return formatDate(new Date());
+}
+
+/** Add calendar days to a YYYY-MM-DD string, returning YYYY-MM-DD. UTC-safe. */
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00Z");
+  return formatDate(new Date(d.getTime() + days * ONE_DAY_MS));
 }
 
 function newId(): string {
@@ -691,10 +699,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       );
       if (hasActive) return state;
 
-      const startDate = toDateStr(new Date());
-      const endDateObj = new Date(startDate);
-      endDateObj.setDate(endDateObj.getDate() + durationDays);
-      const endDate = toDateStr(endDateObj);
+      const startDate = todayDateStr();
+      const endDate = addDays(startDate, durationDays);
 
       return {
         project: {
@@ -718,15 +724,13 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
 
     // 2. Fire-and-forget Firestore write
     if (projectId) {
-      const fsStart = toDateStr(new Date());
-      const fsEndObj = new Date(fsStart);
-      fsEndObj.setDate(fsEndObj.getDate() + durationDays);
+      const fsStart = todayDateStr();
       firestoreStartSprint(
         getFirebaseDb(),
         projectId,
         id,
         fsStart,
-        toDateStr(fsEndObj)
+        addDays(fsStart, durationDays)
       ).catch(handleWriteError("start sprint"));
     }
   },

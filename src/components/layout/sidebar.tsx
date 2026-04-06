@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Home,
   LayoutDashboard,
+  BarChart3,
   GanttChart,
   Users,
   Settings,
@@ -22,6 +23,7 @@ import { useRouter } from "next/navigation";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/board", label: "Board", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: BarChart3 },
   { href: "/gantt", label: "Gantt", icon: GanttChart },
   { href: "/workload", label: "Workload", icon: Users },
   { href: "/settings", label: "Settings", icon: Settings },
