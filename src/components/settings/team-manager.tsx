@@ -128,6 +128,9 @@ interface MemberCardProps {
   isEditing: boolean;
   onSaveEdit: (data: MemberFormState) => void;
   onCancelEdit: () => void;
+  currentUid: string | null;
+  onLinkToMe: () => void;
+  onUnlinkFromMe: () => void;
 }
 
 function MemberCard({
@@ -137,8 +140,16 @@ function MemberCard({
   isEditing,
   onSaveEdit,
   onCancelEdit,
+  currentUid,
+  onLinkToMe,
+  onUnlinkFromMe,
 }: MemberCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const isLinkedToMe = Boolean(currentUid && member.linkedUserId === currentUid);
+  const isLinkedToSomeoneElse = Boolean(
+    member.linkedUserId && member.linkedUserId !== currentUid
+  );
 
   if (isEditing) {
     return (
@@ -171,9 +182,36 @@ function MemberCard({
         <p className="text-xs text-[var(--text-secondary)] truncate">
           {member.role || "No role"} &bull; {member.hoursPerDay}h/day
         </p>
+        {currentUid && (
+          <p className="text-xs text-[var(--text-tertiary)] truncate">
+            {isLinkedToMe
+              ? "Linked to your account"
+              : member.linkedUserId
+                ? "Linked to a user account"
+                : "Not linked"}
+          </p>
+        )}
       </div>
       {/* Actions */}
       <div className="flex items-center gap-1 flex-shrink-0">
+        {currentUid && (
+          <>
+            {isLinkedToMe ? (
+              <Button variant="ghost" size="sm" onClick={onUnlinkFromMe}>
+                Unlink
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isLinkedToSomeoneElse}
+                onClick={onLinkToMe}
+              >
+                {isLinkedToSomeoneElse ? "Linked" : "Link to me"}
+              </Button>
+            )}
+          </>
+        )}
         <Button variant="ghost" size="sm" onClick={onEdit}>
           Edit
         </Button>
@@ -345,6 +383,7 @@ export function TeamManager() {
   const addTeamMember = useProjectStore((s) => s.addTeamMember);
   const updateTeamMember = useProjectStore((s) => s.updateTeamMember);
   const removeTeamMember = useProjectStore((s) => s.removeTeamMember);
+  const { user } = useAuth();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -357,6 +396,23 @@ export function TeamManager() {
   function handleSaveEdit(id: string, data: MemberFormState) {
     updateTeamMember(id, data);
     setEditingId(null);
+  }
+
+  function linkMemberToMe(memberId: string) {
+    if (!user) return;
+
+    // Ensure a user is linked to at most one team member.
+    for (const member of team) {
+      if (member.linkedUserId === user.uid && member.id !== memberId) {
+        updateTeamMember(member.id, { linkedUserId: null });
+      }
+    }
+
+    updateTeamMember(memberId, { linkedUserId: user.uid });
+  }
+
+  function unlinkMemberFromMe(memberId: string) {
+    updateTeamMember(memberId, { linkedUserId: null });
   }
 
   return (
@@ -399,6 +455,9 @@ export function TeamManager() {
               onDelete={() => removeTeamMember(member.id)}
               onSaveEdit={(data) => handleSaveEdit(member.id, data)}
               onCancelEdit={() => setEditingId(null)}
+              currentUid={user?.uid ?? null}
+              onLinkToMe={() => linkMemberToMe(member.id)}
+              onUnlinkFromMe={() => unlinkMemberFromMe(member.id)}
             />
           ))}
 
