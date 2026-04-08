@@ -18,6 +18,7 @@ const pageTitles: Record<string, string> = {
   "/gantt": "Gantt Chart",
   "/workload": "Workload",
   "/settings": "Settings",
+  "/about": "About",
 };
 
 export function Navbar() {
