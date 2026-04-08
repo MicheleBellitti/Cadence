@@ -74,6 +74,7 @@ export function MarkdownTextarea({
           className="flex border-b border-[var(--border)] bg-[var(--bg-surface)]"
         >
           <button
+            type="button"
             role="tab"
             id={editTabId}
             aria-selected={activeTab === "edit"}
@@ -86,6 +87,7 @@ export function MarkdownTextarea({
             Edit
           </button>
           <button
+            type="button"
             role="tab"
             id={previewTabId}
             aria-selected={activeTab === "preview"}
