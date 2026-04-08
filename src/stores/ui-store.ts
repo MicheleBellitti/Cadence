@@ -6,12 +6,14 @@ interface UIState {
   theme: Theme;
   sidebarCollapsed: boolean;
   activeModal: string | null;
+  hasSeenWelcome: boolean;
 
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   openModal: (modalId: string) => void;
   closeModal: () => void;
+  setHasSeenWelcome: (seen: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -20,6 +22,7 @@ export const useUIStore = create<UIState>()(
       theme: "system",
       sidebarCollapsed: false,
       activeModal: null,
+      hasSeenWelcome: false,
 
       setTheme: (theme) => set({ theme }),
 
@@ -31,12 +34,15 @@ export const useUIStore = create<UIState>()(
       openModal: (modalId) => set({ activeModal: modalId }),
 
       closeModal: () => set({ activeModal: null }),
+
+      setHasSeenWelcome: (seen) => set({ hasSeenWelcome: seen }),
     }),
     {
       name: "cadence-ui",
       partialize: (state) => ({
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
+        hasSeenWelcome: state.hasSeenWelcome,
       }),
     }
   )
