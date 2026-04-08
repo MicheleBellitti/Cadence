@@ -18,6 +18,7 @@ import { MyTasksCard } from "@/components/dashboard/my-tasks-card";
 import { AtRiskCard } from "@/components/dashboard/at-risk-card";
 import { BurndownChart } from "@/components/dashboard/burndown-chart";
 import { ItemDetailDrawer } from "@/components/items/item-detail-drawer";
+import { WelcomeBanner } from "@/components/layout/welcome-banner";
 
 export default function DashboardPage() {
   const items = useItems();
@@ -68,6 +69,8 @@ export default function DashboardPage() {
   return (
     <>
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
+        <WelcomeBanner />
+
         {/* Sprint progress — full width at top */}
         <SprintProgressCard progress={sprintProgress} />
 
