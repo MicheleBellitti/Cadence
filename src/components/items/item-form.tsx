@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
+import { MarkdownTextarea } from "../ui/markdown-textarea";
 import { Select } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Badge } from "@/components/ui/badge";
@@ -291,27 +292,15 @@ export function ItemForm({
       />
 
       {/* Description */}
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="item-description"
-          className="text-sm font-medium text-[var(--text-secondary)]"
-        >
-          Description
-        </label>
-        <textarea
-          id="item-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Markdown supported..."
-          rows={3}
-          className={[
-            "w-full px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border)] rounded-md",
-            "text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]",
-            "focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent",
-            "transition-colors duration-150 resize-y",
-          ].join(" ")}
-        />
-      </div>
+      <MarkdownTextarea
+        id="item-description"
+        label="Description"
+        value={description}
+        onChange={(val) => setDescription(val)}
+        placeholder="Markdown supported..."
+        rows={3}
+        maxLength={10000}
+      />
 
       {/* Status + Priority */}
       <div className="grid grid-cols-2 gap-3">
@@ -451,27 +440,15 @@ export function ItemForm({
             value={storyPoints}
             onChange={(e) => setStoryPoints(e.target.value)}
           />
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor="item-acceptance-criteria"
-              className="text-sm font-medium text-[var(--text-secondary)]"
-            >
-              Acceptance Criteria
-            </label>
-            <textarea
-              id="item-acceptance-criteria"
-              value={acceptanceCriteria}
-              onChange={(e) => setAcceptanceCriteria(e.target.value)}
-              placeholder="Define the acceptance criteria..."
-              rows={3}
-              className={[
-                "w-full px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border)] rounded-md",
-                "text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]",
-                "focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent",
-                "transition-colors duration-150 resize-y",
-              ].join(" ")}
-            />
-          </div>
+          <MarkdownTextarea
+            id="item-acceptance-criteria"
+            label="Acceptance Criteria"
+            value={acceptanceCriteria}
+            onChange={(val) => setAcceptanceCriteria(val)}
+            placeholder="Define the acceptance criteria..."
+            rows={3}
+            maxLength={10000}
+          />
         </>
       )}
 
@@ -485,27 +462,15 @@ export function ItemForm({
             onChange={(e) => setSeverity(e.target.value as Severity)}
             options={SEVERITY_OPTIONS}
           />
-          <div className="flex flex-col gap-1">
-            <label
-              htmlFor="item-steps-to-reproduce"
-              className="text-sm font-medium text-[var(--text-secondary)]"
-            >
-              Steps to Reproduce
-            </label>
-            <textarea
-              id="item-steps-to-reproduce"
-              value={stepsToReproduce}
-              onChange={(e) => setStepsToReproduce(e.target.value)}
-              placeholder="1. Go to...\n2. Click on...\n3. Observe..."
-              rows={3}
-              className={[
-                "w-full px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border)] rounded-md",
-                "text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]",
-                "focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent",
-                "transition-colors duration-150 resize-y",
-              ].join(" ")}
-            />
-          </div>
+          <MarkdownTextarea
+            id="item-steps-to-reproduce"
+            label="Steps to Reproduce"
+            value={stepsToReproduce}
+            onChange={(val) => setStepsToReproduce(val)}
+            placeholder="1. Go to...\n2. Click on...\n3. See error..."
+            rows={3}
+            maxLength={10000}
+          />
         </>
       )}
 
