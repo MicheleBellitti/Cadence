@@ -8,6 +8,7 @@ import {
   useReducedMotion,
   type MotionValue,
 } from "framer-motion";
+import { AlertTriangle } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -15,23 +16,25 @@ import {
 
 interface MemberData {
   name: string;
+  initials: string;
   color: string;
   /** Hours per day across 5 days (Mon-Fri) */
   hours: number[];
 }
 
 const MEMBERS: MemberData[] = [
-  { name: "Alice", color: "var(--accent)", hours: [6, 4, 8, 3, 5] },
-  { name: "Bob", color: "var(--purple)", hours: [4, 7, 5, 9, 8] },
-  { name: "Carol", color: "var(--success)", hours: [3, 5, 6, 8, 10] },
+  { name: "Alice", initials: "AL", color: "var(--accent)", hours: [6, 4, 8, 3, 5] },
+  { name: "Bob", initials: "BO", color: "var(--purple)", hours: [4, 7, 5, 9, 8] },
+  { name: "Carol", initials: "CA", color: "var(--success)", hours: [3, 5, 6, 8, 10] },
 ];
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const MAX_CAPACITY = 8;
 
 const STEPS = [
-  { title: "See your team's capacity", description: "A clear grid shows who is available and when." },
-  { title: "Track daily hours", description: "Cells fill to reflect how loaded each person is." },
-  { title: "Spot overallocation", description: "Red cells warn you before anyone gets overwhelmed." },
+  { title: "See your team's capacity", description: "A heatmap grid shows daily hours for every member at a glance." },
+  { title: "Track daily hours", description: "Cells fill proportionally — taller bars mean heavier days." },
+  { title: "Spot overallocation", description: "Red cells and warning icons flag anyone above capacity." },
 ];
 
 function getCellStatus(hours: number): "normal" | "warning" | "danger" {
@@ -40,14 +43,25 @@ function getCellStatus(hours: number): "normal" | "warning" | "danger" {
   return "normal";
 }
 
-function getCellColor(status: "normal" | "warning" | "danger"): string {
+function getCellBg(status: "normal" | "warning" | "danger"): string {
   switch (status) {
     case "danger":
-      return "color-mix(in srgb, var(--danger) 25%, transparent)";
+      return "color-mix(in srgb, var(--danger) 20%, transparent)";
     case "warning":
-      return "color-mix(in srgb, var(--warning) 20%, transparent)";
+      return "color-mix(in srgb, var(--warning) 15%, transparent)";
     default:
-      return "color-mix(in srgb, var(--success) 15%, transparent)";
+      return "color-mix(in srgb, var(--accent) 10%, transparent)";
+  }
+}
+
+function getBarColor(status: "normal" | "warning" | "danger"): string {
+  switch (status) {
+    case "danger":
+      return "var(--danger)";
+    case "warning":
+      return "var(--warning)";
+    default:
+      return "var(--accent)";
   }
 }
 
@@ -81,7 +95,7 @@ function StepLabel({
 }
 
 /* ------------------------------------------------------------------ */
-/*  Workload cell                                                      */
+/*  Workload cell — heatmap style with inner capacity bar              */
 /* ------------------------------------------------------------------ */
 
 function WorkloadCell({
@@ -94,36 +108,96 @@ function WorkloadCell({
   colorOpacity: MotionValue<number>;
 }) {
   const status = getCellStatus(hours);
-  const normalBg = getCellColor("normal");
-  const finalBg = getCellColor(status);
+  const barHeight = Math.min((hours / MAX_CAPACITY) * 100, 100);
 
   return (
-    <div className="relative flex h-10 w-14 items-center justify-center rounded border border-[var(--border)]">
-      {/* Green fill (step 2) */}
+    <div className="relative flex h-14 w-16 flex-col items-center justify-end overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]">
+      {/* Heatmap background fill (step 2) */}
       <motion.div
-        className="absolute inset-0 rounded"
+        className="absolute inset-0 rounded-lg"
         style={{
           opacity: fillOpacity,
-          backgroundColor: normalBg,
+          backgroundColor: getCellBg("normal"),
         }}
       />
-      {/* Warning/danger override (step 3) */}
+      {/* Status-colored background override (step 3) */}
       {status !== "normal" && (
         <motion.div
-          className="absolute inset-0 rounded"
+          className="absolute inset-0 rounded-lg"
           style={{
             opacity: colorOpacity,
-            backgroundColor: finalBg,
+            backgroundColor: getCellBg(status),
           }}
         />
       )}
+
+      {/* Capacity bar from bottom */}
+      <motion.div
+        className="relative z-10 w-full"
+        style={{ opacity: fillOpacity }}
+      >
+        <div
+          className="mx-1.5 rounded-t-sm"
+          style={{
+            height: `${barHeight}%`,
+            minHeight: hours > 0 ? 4 : 0,
+            backgroundColor: getBarColor(status),
+            opacity: 0.6,
+          }}
+        />
+      </motion.div>
+
       {/* Hour label */}
       <motion.span
-        className="relative z-10 text-xs font-medium text-[var(--text-primary)]"
+        className="absolute inset-0 flex items-center justify-center text-xs font-bold text-[var(--text-primary)]"
         style={{ opacity: fillOpacity }}
       >
         {hours}h
       </motion.span>
+
+      {/* Danger icon (step 3) */}
+      {status === "danger" && (
+        <motion.div
+          className="absolute right-0.5 top-0.5 z-20"
+          style={{ opacity: colorOpacity }}
+        >
+          <AlertTriangle className="h-3 w-3 text-[var(--danger)]" />
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Static cell for reduced-motion                                     */
+/* ------------------------------------------------------------------ */
+
+function StaticWorkloadCell({ hours }: { hours: number }) {
+  const status = getCellStatus(hours);
+  const barHeight = Math.min((hours / MAX_CAPACITY) * 100, 100);
+
+  return (
+    <div
+      className="relative flex h-14 w-16 flex-col items-center justify-end overflow-hidden rounded-lg border border-[var(--border)]"
+      style={{ backgroundColor: getCellBg(status) }}
+    >
+      <div
+        className="mx-1.5 rounded-t-sm"
+        style={{
+          height: `${barHeight}%`,
+          minHeight: hours > 0 ? 4 : 0,
+          backgroundColor: getBarColor(status),
+          opacity: 0.6,
+        }}
+      />
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-[var(--text-primary)]">
+        {hours}h
+      </span>
+      {status === "danger" && (
+        <div className="absolute right-0.5 top-0.5">
+          <AlertTriangle className="h-3 w-3 text-[var(--danger)]" />
+        </div>
+      )}
     </div>
   );
 }
@@ -147,11 +221,8 @@ export function WorkloadSection() {
   const step3Opacity = useTransform(scrollYProgress, [0.66, 0.73, 0.88, 0.95], [0, 1, 1, 0]);
 
   /* Animation values */
-  // Step 1: grid structure appears
   const gridAppear = useTransform(scrollYProgress, [0.05, 0.2], [0, 1]);
-  // Step 2: cells fill green
   const cellFill = useTransform(scrollYProgress, [0.36, 0.55], [0, 1]);
-  // Step 3: overallocated cells turn warning/danger
   const overallocationColor = useTransform(scrollYProgress, [0.7, 0.85], [0, 1]);
 
   /* Reduced motion fallback */
@@ -166,37 +237,15 @@ export function WorkloadSection() {
             Balance your team&apos;s workload and prevent burnout.
           </p>
           <motion.div
-            className="inline-block"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
           >
-            <div className="flex gap-1">
-              <div className="w-20" />
-              {DAYS.map((day) => (
-                <div key={day} className="flex w-14 justify-center text-xs text-[var(--text-secondary)]">
-                  {day}
-                </div>
-              ))}
-            </div>
-            {MEMBERS.map((member) => (
-              <div key={member.name} className="mt-1 flex items-center gap-1">
-                <div className="flex w-20 items-center gap-2">
-                  <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: member.color }} />
-                  <span className="text-xs font-medium text-[var(--text-primary)]">{member.name}</span>
-                </div>
-                {member.hours.map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex h-10 w-14 items-center justify-center rounded border border-[var(--border)]"
-                    style={{ backgroundColor: getCellColor(getCellStatus(h)) }}
-                  >
-                    <span className="text-xs font-medium text-[var(--text-primary)]">{h}h</span>
-                  </div>
-                ))}
-              </div>
-            ))}
+            <WorkloadGrid
+              members={MEMBERS}
+              renderCell={(hours) => <StaticWorkloadCell hours={hours} />}
+            />
           </motion.div>
         </div>
       </section>
@@ -224,46 +273,91 @@ export function WorkloadSection() {
             </div>
           </div>
 
-          {/* Right: illustration */}
+          {/* Right: heatmap illustration */}
           <motion.div
             className="will-change-transform"
             style={{ opacity: gridAppear }}
           >
-            {/* Day headers */}
-            <div className="mb-1 flex gap-1">
-              <div className="w-20" />
-              {DAYS.map((day) => (
-                <div key={day} className="flex w-14 justify-center text-xs text-[var(--text-secondary)]">
-                  {day}
-                </div>
-              ))}
-            </div>
+            <WorkloadGrid
+              members={MEMBERS}
+              renderCell={(hours) => (
+                <WorkloadCell
+                  hours={hours}
+                  fillOpacity={cellFill}
+                  colorOpacity={overallocationColor}
+                />
+              )}
+            />
 
-            {/* Member rows */}
-            {MEMBERS.map((member) => (
-              <div key={member.name} className="mt-1 flex items-center gap-1">
-                <div className="flex w-20 items-center gap-2">
-                  <div
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: member.color }}
-                  />
-                  <span className="text-xs font-medium text-[var(--text-primary)]">
-                    {member.name}
-                  </span>
-                </div>
-                {member.hours.map((h, dayIdx) => (
-                  <WorkloadCell
-                    key={dayIdx}
-                    hours={h}
-                    fillOpacity={cellFill}
-                    colorOpacity={overallocationColor}
-                  />
-                ))}
-              </div>
-            ))}
+            {/* Capacity legend */}
+            <motion.div
+              className="mt-3 flex items-center justify-center gap-4 text-[10px] text-[var(--text-tertiary)]"
+              style={{ opacity: overallocationColor }}
+            >
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-2 w-2 rounded-sm" style={{ backgroundColor: "var(--accent)", opacity: 0.6 }} />
+                Normal
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-2 w-2 rounded-sm" style={{ backgroundColor: "var(--warning)", opacity: 0.6 }} />
+                Heavy
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-2 w-2 rounded-sm" style={{ backgroundColor: "var(--danger)", opacity: 0.6 }} />
+                Over capacity
+              </span>
+            </motion.div>
           </motion.div>
         </div>
       </div>
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shared grid layout                                                 */
+/* ------------------------------------------------------------------ */
+
+function WorkloadGrid({
+  members,
+  renderCell,
+}: {
+  members: MemberData[];
+  renderCell: (hours: number) => React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-lg">
+      {/* Day headers */}
+      <div className="mb-2 flex gap-2">
+        <div className="w-24" />
+        {DAYS.map((day) => (
+          <div key={day} className="flex w-16 justify-center text-xs font-medium text-[var(--text-secondary)]">
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Member rows */}
+      {members.map((member) => (
+        <div key={member.name} className="mt-2 flex items-center gap-2">
+          <div className="flex w-24 items-center gap-2.5">
+            <div
+              className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              style={{ backgroundColor: member.color }}
+            >
+              {member.initials}
+            </div>
+            <span className="text-xs font-medium text-[var(--text-primary)]">
+              {member.name}
+            </span>
+          </div>
+          {member.hours.map((h, dayIdx) => (
+            <div key={dayIdx}>
+              {renderCell(h)}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
