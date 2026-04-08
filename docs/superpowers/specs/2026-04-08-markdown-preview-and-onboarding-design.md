@@ -234,12 +234,14 @@ const { scrollYProgress } = useScroll({
   offset: ["start end", "end start"]
 });
 
-// Map scroll progress to animation values
+// Map scroll progress to GPU-composited animation values
 const opacity = useTransform(scrollYProgress, [0, 0.3, 0.7, 1], [0, 1, 1, 0]);
-const barWidth = useTransform(scrollYProgress, [0.2, 0.5], ["0%", "66%"]);
+const progressScale = useTransform(scrollYProgress, [0.2, 0.5], [0, 0.66]); // use scaleX, not width
 ```
 
 No external scroll animation libraries needed — Framer Motion (already installed) handles everything.
+
+**Scroll container caveat:** The app's `MainContent` component may use `overflow-y: auto`, meaning the page scrolls inside a nested container rather than the window. If so, `useScroll` must receive a `container` ref pointing to the scroll parent, not just a `target` ref. Verify during implementation by checking where the scroll event fires. If `MainContent` is the scroll container, pass its ref through context or via a prop from the page layout.
 
 ### Performance Considerations
 
@@ -247,7 +249,8 @@ No external scroll animation libraries needed — Framer Motion (already install
 - **`will-change: transform`** on all sticky elements to promote to compositor layer
 - **`prefers-reduced-motion` fallback:** When the user has reduced motion enabled, all scroll-linked animations are disabled. Sections degrade to simple `whileInView` fade-in with `once: true`. This is both an accessibility requirement (WCAG 2.1 guideline 2.3.3) and a performance benefit for lower-end devices.
 - **SVG `pathLength` animation** (Gantt dependency arrows) triggers repaints — keep the SVG simple and limit to 2-3 paths.
-- **Lazy loading:** Section components should be imported with `next/dynamic` to keep them out of shared chunks and avoid penalizing the initial load of Board/Gantt views.
+- **Lazy loading:** Section components should be imported with `next/dynamic` to keep them out of shared chunks and avoid penalizing the initial load of Board/Gantt views. Include a lightweight loading skeleton in the `loading` option so direct navigation to `/about` shows a placeholder while chunks load.
+- **Tailwind typography v4 class names:** Verify that `prose` and `dark:prose-invert` work with `@tailwindcss/typography` under Tailwind v4. If the plugin uses a different API, adjust class names during implementation.
 
 ### Layout Constraints
 
