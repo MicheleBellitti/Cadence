@@ -12,6 +12,7 @@ import {
   PanelLeft,
   LogOut,
   FolderOpen,
+  HelpCircle,
 } from "lucide-react";
 import { useUIStore } from "@/stores/ui-store";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -145,6 +146,59 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Secondary nav */}
+      <div
+        className="shrink-0 px-2 pb-2"
+        style={{ borderTop: "1px solid var(--border)" }}
+      >
+        <div className="pt-2">
+          {(() => {
+            const isActive = pathname === "/about" || pathname.startsWith("/about/");
+            return (
+              <Link
+                href="/about"
+                title={sidebarCollapsed ? "About" : undefined}
+                className="flex items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-colors relative"
+                style={{
+                  color: isActive ? "var(--accent)" : "var(--text-secondary)",
+                  backgroundColor: isActive ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = "var(--bg-elevated)";
+                    e.currentTarget.style.color = "var(--text-primary)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.color = "var(--text-secondary)";
+                  }
+                }}
+              >
+                {isActive && (
+                  <span
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r"
+                    style={{ backgroundColor: "var(--accent)" }}
+                  />
+                )}
+                <HelpCircle size={18} className="shrink-0" />
+                {!sidebarCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.15 }}
+                    className="truncate"
+                  >
+                    About
+                  </motion.span>
+                )}
+              </Link>
+            );
+          })()}
+        </div>
+      </div>
 
       {/* User footer */}
       {user && (
