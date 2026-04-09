@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.1.0](https://github.com/MicheleBellitti/Cadence/compare/v1.0.0...v1.1.0) (2026-04-09)
+
+
+### Features
+
+* about + markdown rendering support ([83d1228](https://github.com/MicheleBellitti/Cadence/commit/83d1228edb39d5c75ce2adea6875adedba87e10a))
+* add About entry to sidebar and navbar ([615f988](https://github.com/MicheleBellitti/Cadence/commit/615f988fd0779849886dc61aa1cc9252d66d34dc))
+* add about page shell with lazy-loaded tutorial sections ([e1ba293](https://github.com/MicheleBellitti/Cadence/commit/e1ba29332fb3eaeefaaa6413adcce357f3ad84db))
+* add board tutorial section with scroll-driven card animation ([3384814](https://github.com/MicheleBellitti/Cadence/commit/338481454ea1037f28d86b4b93bf522d72df2395))
+* add Gantt tutorial section with progressive reveal ([22a878b](https://github.com/MicheleBellitti/Cadence/commit/22a878b40b06093b757bd1f325017effc1c29a30))
+* add hasSeenWelcome state to ui-store ([3ac8ffe](https://github.com/MicheleBellitti/Cadence/commit/3ac8ffe6f8e6b15696439e160bc81ebef60b520b))
+* add hero section with scroll-fade animation ([93951f1](https://github.com/MicheleBellitti/Cadence/commit/93951f1225d55fbe2d489ed8bb7c77e3db09b471))
+* add MarkdownRenderer component for read-only markdown display ([f8700d8](https://github.com/MicheleBellitti/Cadence/commit/f8700d89754e5f554492e0763021eaca3bb89aa5))
+* add MarkdownTextarea component with Edit/Preview tabs ([921a981](https://github.com/MicheleBellitti/Cadence/commit/921a981bddd706dbf9daa6010f579cd8b2a431e0))
+* add settings and CTA sections for about page ([097bc96](https://github.com/MicheleBellitti/Cadence/commit/097bc961d1d0283199af73fe76bdedc8204fb012))
+* add sprint tutorial section with progress animation ([7aae9ac](https://github.com/MicheleBellitti/Cadence/commit/7aae9ac3636095709f659c7b64536fa9f57ee3f3))
+* add useSectionScroll shared hook for about page animations ([aa3708c](https://github.com/MicheleBellitti/Cadence/commit/aa3708c49c5e65c96bc3340f5a4d7dc900b8b57e))
+* add welcome banner to dashboard with link to about page ([7766ddb](https://github.com/MicheleBellitti/Cadence/commit/7766ddba52cb2c2757f7aa3a3b2a4ec214b531a4))
+* add workload tutorial section with filling grid animation ([c655469](https://github.com/MicheleBellitti/Cadence/commit/c6554695c367922dc714daa27d88f2de3ae0463d))
+* replace plain textareas with MarkdownTextarea in item form ([fe0986a](https://github.com/MicheleBellitti/Cadence/commit/fe0986a99f79bbc915321c2e41b2b67d2b82cc16))
+
+
+### Bug Fixes
+
+* add type=button to MarkdownTextarea tab buttons ([19b5881](https://github.com/MicheleBellitti/Cadence/commit/19b58813a2384dd3d2425c0196d7e0cc2f55bea1))
+
 ## 1.0.0 (2026-04-07)
 
 
