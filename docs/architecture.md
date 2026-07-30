@@ -2,7 +2,9 @@
 
 ## Overview
 
-Cadence is a client-side project planning tool that combines a Kanban board for daily backlog management with an interactive Gantt chart featuring Critical Path Method (CPM) analysis. It targets small teams (3-5 people) and stores all data in localStorage via Zustand.
+Cadence is a project planning tool that combines a Kanban board for daily backlog management with an interactive Gantt chart featuring Critical Path Method (CPM) analysis. It targets small teams (3-5 people).
+
+The UI ships as a Next.js static export with no server of its own: the browser talks directly to Firebase Auth and Firestore, and `firestore.rules` — which requires the caller's uid to be in `project.memberIds` — is the only server-enforced security boundary. A separate read-only MCP connector (`functions/`, see [connector.md](connector.md)) lets AI assistants report on board state without ever receiving the user's credentials.
 
 ## Data Model
 
@@ -25,7 +27,7 @@ Epic (root container)
 | description     | string            | Markdown                                   |
 | status          | Status            | `'todo' \| 'in_progress' \| 'in_review' \| 'done'` |
 | priority        | Priority          | `'critical' \| 'high' \| 'medium' \| 'low'` |
-| assigneeId      | string \| null    | References TeamMember.id                   |
+| assigneeIds     | string[]          | References TeamMember.id (many-to-many)    |
 | estimatedDays   | number            | Decimal (0.5 = half day)                   |
 | dependencies    | string[]          | Item IDs of predecessors                   |
 | parentId        | string \| null    | Epic ID for stories, Story ID for tasks/bugs |
@@ -50,6 +52,7 @@ Epic (root container)
 | color       | string | Hex color for Gantt bars/cards |
 | role        | string | Freeform (e.g., "AI Engineer") |
 | hoursPerDay | number | Default 8, used for workload   |
+| linkedUserId | string \| null | Firebase UID — how "my tasks" resolves an authenticated user to a team member |
 
 ### GanttOverride
 
@@ -58,7 +61,7 @@ Epic (root container)
 | itemId    | string | References BaseItem.id        |
 | startDate | string | ISO 8601, manual start date   |
 
-### Project (root object in localStorage)
+### Project (in-memory assembly of the Firestore documents)
 
 ```typescript
 interface Project {
@@ -68,16 +71,34 @@ interface Project {
   items: Item[];
   team: TeamMember[];
   overrides: GanttOverride[];
+  sprints: Sprint[];
+  activeSprint: string | null;
   createdAt: string;
   updatedAt: string;
+  ownerId?: string;
+  memberIds?: string[];
 }
 ```
+
+## Persistence (Firestore)
+
+```
+projects/{projectId}                 { name, deadline, ownerId, memberIds[], activeSprint, … }
+  ├── items/{itemId}                 Epic | Story | Task | Bug
+  ├── team/{memberId}                { name, color, role, hoursPerDay, linkedUserId }
+  ├── sprints/{sprintId}             { name, goal, status, startDate, endDate }
+  └── overrides/{itemId}             { startDate }        ← doc id is the item id
+users/{uid}                          { email, displayName, projectId }
+invites/{projectId_email}            { email, projectId, invitedBy, status }
+```
+
+`subscribeToProject` (`lib/firestore-sync.ts`) opens five `onSnapshot` listeners and assembles the in-memory `Project`. Writes are optimistic: the store updates locally, then fires the Firestore write.
 
 ## State Architecture
 
 Three Zustand stores with clear separation of concerns:
 
-### projectStore (persisted → `cadence-project`)
+### projectStore (not persisted — hydrated from Firestore listeners)
 - `project: Project` — the entire project state
 - CRUD actions for items, team members, overrides
 - Every mutation auto-updates `updatedAt`
