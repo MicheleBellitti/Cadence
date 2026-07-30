@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Connector codebase: typechecked by functions/tsconfig.json, not the Next lint config.
+    "functions/**",
   ]),
 ]);
 

@@ -106,8 +106,8 @@ service cloud.firestore {
       // bound together here — otherwise a member of any project could mint an
       // invite whose document ID names a project they do not belong to, mark
       // it accepted, and add themselves to that project's memberIds. Since
-      // memberIds is the sole authorization signal, that would hand over the
-      // victim's whole board.
+      // memberIds is the sole authorization signal for both the app and the
+      // read-only MCP connector, that would hand over the victim's whole board.
       //
       // `status` is pinned to 'pending' on create so the accept transition
       // must go through the invitee-only update rule below.
@@ -130,6 +130,28 @@ service cloud.firestore {
         && request.auth.token.email == resource.data.email
         && request.resource.data.status == 'accepted'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+
+    // ── MCP connector state — Admin SDK only ──────────────────────────────────
+    // OAuth clients, pending authorizations, authorization codes and refresh
+    // grants for the read-only AI connector. These hold client secrets and
+    // refresh-token hashes: no client SDK may ever touch them. Unmatched paths
+    // are already denied by default; these blocks make that explicit and
+    // survive any future catch-all rule.
+    match /mcpClients/{clientId} {
+      allow read, write: if false;
+    }
+    match /mcpAuthRequests/{requestId} {
+      allow read, write: if false;
+    }
+    match /mcpAuthCodes/{codeHash} {
+      allow read, write: if false;
+    }
+    match /mcpGrants/{grantId} {
+      allow read, write: if false;
+    }
+    match /mcpGrantTokens/{tokenHash} {
+      allow read, write: if false;
     }
   }
 }
