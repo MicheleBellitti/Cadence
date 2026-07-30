@@ -97,9 +97,25 @@ service cloud.firestore {
 
     // invites/{inviteId}
     match /invites/{inviteId} {
-      // Members of the associated project can create invites
+      // Members of the associated project can create invites.
+      //
+      // IMPORTANT: the project self-join rule above authorizes a membership
+      // change by looking the invite up *by document ID*
+      // (`invites/$(projectId + '_' + email)`), while this rule authorizes
+      // creation from the `projectId` *field*. Those two identifiers must be
+      // bound together here — otherwise a member of any project could mint an
+      // invite whose document ID names a project they do not belong to, mark
+      // it accepted, and add themselves to that project's memberIds. Since
+      // memberIds is the sole authorization signal, that would hand over the
+      // victim's whole board.
+      //
+      // `status` is pinned to 'pending' on create so the accept transition
+      // must go through the invitee-only update rule below.
       allow create: if request.auth != null
-        && isMember(request.resource.data.projectId);
+        && isMember(request.resource.data.projectId)
+        && inviteId == request.resource.data.projectId + '_' + request.resource.data.email
+        && request.resource.data.email == request.resource.data.email.lower()
+        && request.resource.data.status == 'pending';
 
       // The invitee (matched by email) can read their invite
       allow read: if request.auth != null
