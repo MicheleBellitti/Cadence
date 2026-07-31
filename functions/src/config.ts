@@ -60,10 +60,12 @@ export function loadConfig(): ConnectorConfig {
   return {
     issuerUrl,
     resourceUrl: new URL("/mcp", issuerUrl),
+    // Deliberately not FIREBASE_*: Cloud Functions reserves that prefix (along
+    // with X_GOOGLE_ and EXT_) and refuses to deploy an env file that uses it.
     firebaseWebConfig: {
-      apiKey: requireEnv("FIREBASE_API_KEY"),
-      authDomain: requireEnv("FIREBASE_AUTH_DOMAIN"),
-      projectId: requireEnv("FIREBASE_PROJECT_ID"),
+      apiKey: requireEnv("WEB_API_KEY"),
+      authDomain: requireEnv("WEB_AUTH_DOMAIN"),
+      projectId: requireEnv("WEB_PROJECT_ID"),
     },
     authEmulatorHost: process.env.FIREBASE_AUTH_EMULATOR_HOST,
   };

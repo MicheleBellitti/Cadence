@@ -21,9 +21,9 @@ process.env.ISSUER_URL ??= `http://127.0.0.1:${PORT}`;
 process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "127.0.0.1:9099";
 process.env.GOOGLE_CLOUD_PROJECT ??= "cadence-e2c93";
-process.env.FIREBASE_PROJECT_ID ??= process.env.GOOGLE_CLOUD_PROJECT;
-process.env.FIREBASE_API_KEY ??= "demo-api-key";
-process.env.FIREBASE_AUTH_DOMAIN ??= `${process.env.GOOGLE_CLOUD_PROJECT}.firebaseapp.com`;
+process.env.WEB_PROJECT_ID ??= process.env.GOOGLE_CLOUD_PROJECT;
+process.env.WEB_API_KEY ??= "demo-api-key";
+process.env.WEB_AUTH_DOMAIN ??= `${process.env.GOOGLE_CLOUD_PROJECT}.firebaseapp.com`;
 
 const app = createApp({
   config: loadConfig(),
