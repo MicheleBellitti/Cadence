@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
+    "paths": {
+      "@/*": ["../src/*"]
+    }
+  },
+  // Only the connector's own sources are roots. Shared modules under ../src are
+  // typechecked transitively through their imports — listing them here would
+  // also pull in the browser-only files (export.ts, firebase.ts), which need
+  // DOM lib types this runtime does not have.
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
+  "exclude": ["lib", "node_modules"]
+}
