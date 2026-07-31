@@ -46,3 +46,8 @@ next-env.d.ts
 .claude/skills/
 .claude/worktrees/
 skills-lock.json
+
+# Firebase emulator logs
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
