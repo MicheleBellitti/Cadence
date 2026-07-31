@@ -83,7 +83,19 @@ The connector is a vanilla spec-compliant MCP server; nothing about it is assist
 
 ## Local development
 
-The Functions emulator serves functions under `/<project>/<region>/<name>`, but OAuth metadata documents must live at the origin root — so run the connector as a plain local server against the emulators instead:
+The emulators need a JVM. Homebrew's `openjdk` is keg-only, so if `java` is not on your `PATH`:
+
+```bash
+export JAVA_HOME=$(brew --prefix openjdk) PATH="$(brew --prefix openjdk)/bin:$PATH"
+```
+
+Security rules have their own suite, which starts the emulator around itself:
+
+```bash
+npm run test:rules
+```
+
+For the connector itself: the Functions emulator serves functions under `/<project>/<region>/<name>`, but OAuth metadata documents must live at the origin root — so run it as a plain local server against the emulators instead:
 
 ```bash
 firebase emulators:start --only firestore,auth
@@ -102,6 +114,8 @@ Then point the MCP Inspector at `http://127.0.0.1:8787/mcp`:
 ```bash
 npx @modelcontextprotocol/inspector
 ```
+
+The consent page talks to the Auth emulator, so sign in with the seeded credentials the seed script prints.
 
 ## Deployment
 

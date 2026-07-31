@@ -8,8 +8,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
-    // The connector (functions/) has its own vitest config and node environment.
-    exclude: [...configDefaults.exclude, "functions/**"],
+    // functions/ has its own config; tests/rules needs the Firestore emulator
+    // (see vitest.rules.config.mts and `npm run test:rules`).
+    exclude: [...configDefaults.exclude, "functions/**", "tests/rules/**"],
   },
   resolve: {
     alias: {
