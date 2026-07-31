@@ -243,6 +243,20 @@ function withOptional(base: DocumentData, optional: Record<string, string | unde
   return out;
 }
 
+/**
+ * Firestore rejects `undefined` field values outright. A public client (the
+ * shape Claude registers: `token_endpoint_auth_method: "none"` plus PKCE) has
+ * `client_secret` and `client_secret_expires_at` set to `undefined` by the SDK's
+ * registration handler, so the record has to be pruned before it is written.
+ */
+function dropUndefined(data: DocumentData): DocumentData {
+  const out: DocumentData = {};
+  for (const [field, value] of Object.entries(data)) {
+    if (value !== undefined) out[field] = value;
+  }
+  return out;
+}
+
 export function createFirestoreStore(db: Firestore): OAuthStore {
   const clients = db.collection(CLIENTS_COLLECTION);
   const authRequests = db.collection(AUTH_REQUESTS_COLLECTION);
@@ -273,7 +287,7 @@ export function createFirestoreStore(db: Firestore): OAuthStore {
     },
 
     async saveClient(client) {
-      await clients.doc(client.client_id).set(client);
+      await clients.doc(client.client_id).set(dropUndefined(client));
     },
 
     async createAuthRequest(request) {
